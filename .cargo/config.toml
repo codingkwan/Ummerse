@@ -2,33 +2,35 @@
 # 参考: https://doc.rust-lang.org/cargo/reference/config.html
 
 [build]
-# 使用 cranelift 加速 debug 编译（需要 rust nightly 或 stable 1.78+）
-# rustc-wrapper = "sccache"   # 若安装了 sccache，取消注释可大幅加速重新编译
-
-# 并行编译作业数（默认为 CPU 核心数，可适当调低避免内存压力）
-# jobs = 8
+# 使用 sccache 缓存编译产物（若已安装，取消注释可大幅加速重新编译）
+# rustc-wrapper = "sccache"
 
 [target.x86_64-pc-windows-msvc]
-# Windows 链接器优化：使用 lld-link 或 rust-lld（比 link.exe 快 2-3x）
+# Windows：使用 rust-lld，比 link.exe 快 2-3x
 linker = "rust-lld"
 rustflags = [
-    # 调试版本使用 split-debuginfo 加快链接速度
+    # split-debuginfo=packed 加快增量链接
     "-C", "split-debuginfo=packed",
-    # 减少 debug 版本的代码生成优化（加快编译）
+    # debuginfo=1：只保留行号信息，大幅减少 .pdb 体积
     "-C", "debuginfo=1",
+    # 关闭 inline：加快 debug 编译
+    "-C", "inline-threshold=0",
 ]
 
 [target.x86_64-unknown-linux-gnu]
-# Linux：使用 mold 链接器（需要安装 mold）
+# Linux 使用 mold 链接器（需要安装 mold: sudo apt install mold）
 # linker = "clang"
-# rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+# rustflags = ["-C", "link-arg=-fuse-ld=mold", "-C", "debuginfo=1"]
 rustflags = [
     "-C", "debuginfo=1",
+    "-C", "link-arg=-Wl,--compress-debug-sections=zlib",
 ]
 
 [target.x86_64-apple-darwin]
 rustflags = [
     "-C", "debuginfo=1",
+    # macOS 使用 zld 加快链接（需要 brew install zld）
+    # "-C", "link-arg=-fuse-ld=/usr/local/bin/zld",
 ]
 
 [target.aarch64-apple-darwin]
@@ -40,9 +42,19 @@ rustflags = [
 [target.wasm32-unknown-unknown]
 rustflags = [
     "-C", "opt-level=s",
+    "-C", "link-arg=--import-memory",
 ]
 
-# 环境变量配置
+# ── 编译缓存 ──────────────────────────────────────────────────────────────────
+# 若安装了 sccache，取消以下注释
+# [build]
+# rustc-wrapper = "sccache"
+
+# ── 环境变量 ──────────────────────────────────────────────────────────────────
 [env]
-# 减少 Bevy 热重载的资产扫描频率（开发阶段加快启动）
+# 禁用 Bevy 资产热重载扫描，加快启动
 BEVY_ASSET_SCAN = "0"
+# 减少 wgpu 验证层开销（仅 dev 下有效）
+WGPU_BACKEND = "vulkan"
+# 并行 monomorphization（Rust 1.78+）
+RUSTFLAGS_EXTRA = ""
