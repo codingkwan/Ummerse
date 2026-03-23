@@ -4788,16 +4788,12 @@ name = "ummerse-mcp"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bevy",
- "glam",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
  "tracing-subscriber",
- "ummerse-core",
- "ummerse-plugin",
  "uuid",
 ]
 

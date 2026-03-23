@@ -16,7 +16,7 @@
 //! - 通知格式: `{"jsonrpc":"2.0","method":"...","params":{...}}`（无 id）
 
 use crate::engine_bridge::EngineBridge;
-use crate::tools::{all_tool_defs, dispatch_tool, ToolOutput};
+use crate::tools::{ToolOutput, all_tool_defs, dispatch_tool};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::io::{self, BufRead, Write};
@@ -60,7 +60,9 @@ pub struct RpcError {
 }
 
 // 标准 JSON-RPC 错误码
-const _PARSE_ERROR: i32 = -32700;
+#[allow(dead_code)]
+const PARSE_ERROR: i32 = -32700;
+#[allow(dead_code)]
 const INVALID_REQUEST: i32 = -32600;
 const METHOD_NOT_FOUND: i32 = -32601;
 const INVALID_PARAMS: i32 = -32602;

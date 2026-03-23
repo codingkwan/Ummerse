@@ -162,6 +162,7 @@ pub fn all_tool_defs() -> Vec<ToolDef> {
 // ── 工具分发 ──────────────────────────────────────────────────────────────────
 
 /// 工具执行结果
+#[derive(Debug)]
 pub enum ToolOutput {
     /// 成功，返回文本内容列表
     Success(Vec<Value>),
@@ -237,7 +238,11 @@ pub fn dispatch_tool(tool_name: &str, params: &Value, bridge: &EngineBridge) -> 
                 Some(s) => s,
                 None => return ToolOutput::err("缺少必需参数: 'name'"),
             };
-            let kind = match params.get("kind").and_then(|v| v.as_str()).unwrap_or("block") {
+            let kind = match params
+                .get("kind")
+                .and_then(|v| v.as_str())
+                .unwrap_or("block")
+            {
                 "circle" => EntityKind::Circle,
                 "player" => EntityKind::Player,
                 "camera" => EntityKind::Camera,

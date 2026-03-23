@@ -15,22 +15,13 @@ name = "ummerse_mcp"
 path = "src/lib.rs"
 
 [dependencies]
-# Workspace internal
-ummerse-core.workspace = true
-ummerse-plugin.workspace = true
-
-# Bevy (headless minimal)
-bevy = { workspace = true, default-features = false, features = [
-    "bevy_asset",
-    "serialize",
-] }
-
-# Serialization
+# Serialization（核心依赖，无需 Bevy）
 serde.workspace = true
 serde_json.workspace = true
 
-# Async
+# Async（仅保留必要特性）
 tokio = { workspace = true, features = [
+    "rt",
     "rt-multi-thread",
     "sync",
     "io-util",
@@ -46,10 +37,7 @@ thiserror.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 
-# Math
-glam.workspace = true
-
-# UUID
+# UUID（用于实体 ID 生成）
 uuid.workspace = true
 
 [lints]
