@@ -56,3 +56,6 @@ glam.workspace = true
 # File system
 walkdir.workspace = true
 notify.workspace = true
+
+[lints]
+workspace = true

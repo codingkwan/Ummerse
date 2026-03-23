@@ -1,60 +1,66 @@
-# Cargo 编译加速配置
-# 参考: https://doc.rust-lang.org/cargo/reference/config.html
+# ── .cargo/config.toml ─────────────────────────────────────────────────────────
+# 工作区级别 Cargo 配置，重点优化编译速度
 
+# ── 编译器后端 ─────────────────────────────────────────────────────────────────
 [build]
-# 使用 sccache 缓存编译产物（若已安装，取消注释可大幅加速重新编译）
-# rustc-wrapper = "sccache"
+# 并行 job 数：省略此行让 Cargo 自动使用 CPU 核数
+# jobs = 0  # 注意：0 是非法值，已禁用
 
+# ── 目标平台配置 ───────────────────────────────────────────────────────────────
 [target.x86_64-pc-windows-msvc]
-# Windows：使用 rust-lld，比 link.exe 快 2-3x
-linker = "rust-lld"
+# rust-lld 链接器（比 link.exe 快 3-5x）
+# 注意：需要安装 lld，如未安装可注释此行使用默认 link.exe
+# linker = "rust-lld"
 rustflags = [
-    # split-debuginfo=packed 加快增量链接
-    "-C", "split-debuginfo=packed",
-    # debuginfo=1：只保留行号信息，大幅减少 .pdb 体积
-    "-C", "debuginfo=1",
-    # 关闭 inline：加快 debug 编译
-    "-C", "inline-threshold=0",
+    # 使用 native CPU 指令集（AVX2/SSE4 等），提升运行时性能
+    "-C",
+    "target-cpu=native",
 ]
 
 [target.x86_64-unknown-linux-gnu]
-# Linux 使用 mold 链接器（需要安装 mold: sudo apt install mold）
-# linker = "clang"
-# rustflags = ["-C", "link-arg=-fuse-ld=mold", "-C", "debuginfo=1"]
+# 使用 mold 或 lld 链接器（比 ld 快 5-10x）
+# 优先尝试 mold，若未安装则使用 lld
+linker = "clang"
 rustflags = [
-    "-C", "debuginfo=1",
-    "-C", "link-arg=-Wl,--compress-debug-sections=zlib",
+    "-C",
+    "link-arg=-fuse-ld=lld",
+    "-C",
+    "target-cpu=native",
+    "-C",
+    "split-debuginfo=unpacked",
 ]
 
 [target.x86_64-apple-darwin]
-rustflags = [
-    "-C", "debuginfo=1",
-    # macOS 使用 zld 加快链接（需要 brew install zld）
-    # "-C", "link-arg=-fuse-ld=/usr/local/bin/zld",
-]
+rustflags = ["-C", "target-cpu=native", "-C", "split-debuginfo=unpacked"]
 
 [target.aarch64-apple-darwin]
-rustflags = [
-    "-C", "debuginfo=1",
-]
+rustflags = ["-C", "target-cpu=native", "-C", "split-debuginfo=unpacked"]
 
-# Wasm target
+# ── Wasm 目标 ──────────────────────────────────────────────────────────────────
 [target.wasm32-unknown-unknown]
-rustflags = [
-    "-C", "opt-level=s",
-    "-C", "link-arg=--import-memory",
-]
+rustflags = []
 
-# ── 编译缓存 ──────────────────────────────────────────────────────────────────
-# 若安装了 sccache，取消以下注释
-# [build]
-# rustc-wrapper = "sccache"
+# ── 网络 ───────────────────────────────────────────────────────────────────────
+[net]
+retry = 3
+git-fetch-with-cli = false
 
-# ── 环境变量 ──────────────────────────────────────────────────────────────────
+# ── 注册表镜像（中国大陆加速，按需启用） ──────────────────────────────────────
+# [source.crates-io]
+# replace-with = "rsproxy"
+# [source.rsproxy]
+# registry = "sparse+https://rsproxy.cn/index/"
+
+# ── 终端输出 ───────────────────────────────────────────────────────────────────
+[term]
+color = "auto"
+verbose = false
+progress.when = "auto"
+progress.width = 80
+
+# ── 环境变量 ───────────────────────────────────────────────────────────────────
 [env]
-# 禁用 Bevy 资产热重载扫描，加快启动
-BEVY_ASSET_SCAN = "0"
-# 减少 wgpu 验证层开销（仅 dev 下有效）
-WGPU_BACKEND = "vulkan"
-# 并行 monomorphization（Rust 1.78+）
-RUSTFLAGS_EXTRA = ""
+# 减少 wgpu 验证层日志噪声
+WGPU_BACKEND = { value = "vulkan,metal,dx12", force = false }
+# Tokio 工作线程数（0 = 自动检测 CPU 核心数）
+TOKIO_WORKER_THREADS = { value = "0", force = false }

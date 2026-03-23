@@ -1,16 +1,16 @@
 //! # Ummerse Core
 //!
 //! 引擎核心库，提供：
-//! - ECS（通过 Bevy ECS）
-//! - 节点系统（Godot 风格场景树节点）
-//! - 事件总线（类型安全，pub/sub）
-//! - 信号系统（Godot 风格节点间通信）
-//! - 引擎配置与生命周期
-//! - 错误类型
-//! - 日志初始化
-//! - 输入系统
-//! - 资源注册表
-//! - 时间管理 & 定时器
+//! - **ECS**（通过 Bevy ECS）– 实体、组件、系统
+//! - **节点系统**（Godot 风格场景树节点）
+//! - **事件总线**（类型安全，pub/sub）
+//! - **信号系统**（Godot 风格节点间通信）
+//! - **引擎配置与生命周期**
+//! - **错误类型**
+//! - **输入系统**
+//! - **资源注册表**
+//! - **时间管理 & 定时器**
+//! - **插件接口**
 
 pub mod app;
 pub mod engine;
@@ -30,8 +30,8 @@ pub use engine::{Engine, EngineConfig, EngineState};
 pub use error::{EngineError, Result};
 pub use event::{
     AssetLoadFailed, AssetLoaded, EnginePaused, EngineResumed, Event, EventBus, EventId,
-    SceneLoaded, SceneUnloaded, SharedEventBus, WindowCloseRequested, WindowFocused,
-    WindowResized, WindowUnfocused,
+    SceneLoaded, SceneUnloaded, SharedEventBus, WindowCloseRequested, WindowFocused, WindowResized,
+    WindowUnfocused,
 };
 pub use input::{InputAction, InputManager, KeyCode, MouseButton};
 pub use node::{Node, NodeId, NodeMeta, NodePath, NodeType};
@@ -63,11 +63,11 @@ pub fn init_logging() {
     let filter = EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| EnvFilter::new("info,wgpu=warn,naga=warn,bevy_render=info"));
 
-    fmt()
+    let _ = fmt()
         .with_env_filter(filter)
         .with_target(true)
         .with_thread_names(false)
         .with_file(false)
         .compact()
-        .init();
+        .try_init();
 }

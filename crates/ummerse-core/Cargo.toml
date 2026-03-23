@@ -26,16 +26,22 @@ thiserror.workspace = true
 
 # Logging
 tracing.workspace = true
+tracing-subscriber.workspace = true
+
+# Math
+glam.workspace = true
 
 # Utilities
 uuid.workspace = true
 dashmap.workspace = true
 parking_lot.workspace = true
-once_cell.workspace = true
 bitflags.workspace = true
 smallvec.workspace = true
 indexmap.workspace = true
 ahash.workspace = true
+
+[lints]
+workspace = true
 
 [features]
 default = []

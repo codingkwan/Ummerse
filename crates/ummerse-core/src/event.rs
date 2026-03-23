@@ -15,7 +15,7 @@ use std::{
 };
 
 use ahash::AHashMap;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -215,6 +215,7 @@ impl EventBus {
     }
 
     /// 获取指定类型当前帧的事件数量
+    #[must_use]
     pub fn event_count<E: Event + 'static>(&self) -> usize {
         let queues = self.queues.lock();
         queues
@@ -224,6 +225,7 @@ impl EventBus {
     }
 
     /// 当前注册的处理器数量（指定类型）
+    #[must_use]
     pub fn handler_count<E: Event + 'static>(&self) -> usize {
         let queues = self.queues.lock();
         queues

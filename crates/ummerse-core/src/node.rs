@@ -3,8 +3,8 @@
 //! 提供节点 ID、路径、类型和基础 trait，
 //! 供场景树（ummerse-scene）使用。
 
-use std::fmt;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use uuid::Uuid;
 
 // ── 节点 ID ───────────────────────────────────────────────────────────────────
@@ -224,6 +224,7 @@ pub enum NodeType {
 
 impl NodeType {
     /// 是否为 2D 节点
+    #[must_use]
     pub fn is_2d(&self) -> bool {
         matches!(
             self,
@@ -243,6 +244,7 @@ impl NodeType {
     }
 
     /// 是否为 3D 节点
+    #[must_use]
     pub fn is_3d(&self) -> bool {
         matches!(
             self,
@@ -264,6 +266,7 @@ impl NodeType {
     }
 
     /// 是否为 UI 节点
+    #[must_use]
     pub fn is_ui(&self) -> bool {
         matches!(
             self,
@@ -373,6 +376,7 @@ impl NodeMeta {
     }
 
     /// 判断是否含有指定标签
+    #[must_use]
     pub fn has_tag(&self, tag: &str) -> bool {
         self.tags.iter().any(|t| t == tag)
     }

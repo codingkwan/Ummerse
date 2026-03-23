@@ -23,5 +23,8 @@ tracing.workspace = true
 # Math
 glam.workspace = true
 
+[lints]
+workspace = true
+
 [features]
 default = []

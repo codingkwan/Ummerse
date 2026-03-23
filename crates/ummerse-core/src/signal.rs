@@ -6,7 +6,8 @@
 //! ## 设计要点
 //! - 使用 `parking_lot::Mutex` 替代 `std::sync::Mutex`（更快，无毒化问题）
 //! - 支持 `one_shot` 单次触发后自动断开
-//! - `SignalBus` 支持带参数的具名信号（通过 `serde_json::Value`）
+//! - `SignalBus` 使用 `Arc<dyn Fn()>` 存储回调，以便在锁外安全调用（避免死锁）
+//! - `ScriptSignalBus` 支持带 JSON 参数的具名信号（供脚本系统使用）
 
 use std::sync::Arc;
 
@@ -144,8 +145,12 @@ impl<T: Clone + Send + Sync + 'static> Default for Signal<T> {
 /// - 节点间松耦合通信
 /// - 动态信号名（脚本驱动）
 /// - UI 事件（不需要强类型约束）
+///
+/// ## 实现说明
+/// 回调使用 `Arc<dyn Fn()>` 存储（而非 `Box`），使得 emit 时可以先将
+/// Arc 列表克隆出锁外，再安全调用——彻底消除锁内调用用户代码的死锁风险。
 pub struct SignalBus {
-    signals: Mutex<AHashMap<String, Vec<(ConnectionId, Box<dyn Fn() + Send + Sync>)>>>,
+    signals: Mutex<AHashMap<String, Vec<(ConnectionId, Arc<dyn Fn() + Send + Sync>)>>>,
 }
 
 impl SignalBus {
@@ -158,13 +163,17 @@ impl SignalBus {
     }
 
     /// 连接具名信号（返回连接 ID）
-    pub fn connect(&self, signal: &str, callback: impl Fn() + Send + Sync + 'static) -> ConnectionId {
+    pub fn connect(
+        &self,
+        signal: &str,
+        callback: impl Fn() + Send + Sync + 'static,
+    ) -> ConnectionId {
         let id = ConnectionId::new();
         self.signals
             .lock()
             .entry(signal.to_string())
             .or_default()
-            .push((id, Box::new(callback)));
+            .push((id, Arc::new(callback)));
         id
     }
 
@@ -182,21 +191,21 @@ impl SignalBus {
     }
 
     /// 发射具名信号
+    ///
+    /// 先将 Arc 列表克隆出来（持锁期间只做廉价的 Arc::clone），
+    /// 然后在锁释放后调用各回调，彻底避免死锁。
     pub fn emit(&self, signal: &str) {
-        // 先复制回调列表，避免锁内调用用户代码（死锁风险）
-        let handlers: Vec<_> = {
+        // 克隆 Arc 列表（Arc::clone 仅增加引用计数，极廉价）
+        let callbacks: Vec<Arc<dyn Fn() + Send + Sync>> = {
             let signals = self.signals.lock();
             signals
                 .get(signal)
-                .map(|h| h.iter().map(|(id, _)| *id).collect())
+                .map(|h| h.iter().map(|(_, cb)| Arc::clone(cb)).collect())
                 .unwrap_or_default()
         };
-        // 在锁外调用回调
-        let signals = self.signals.lock();
-        if let Some(h) = signals.get(signal) {
-            for (_, cb) in h {
-                cb();
-            }
+        // 锁已释放，安全调用用户回调
+        for cb in callbacks {
+            cb();
         }
     }
 
@@ -226,11 +235,12 @@ impl Default for SignalBus {
 /// 带 JSON 参数的具名信号总线（供脚本系统使用）
 ///
 /// 参数通过 `serde_json::Value` 传递，灵活性高但有序列化开销。
+/// 同样使用 `Arc` 存储回调以避免锁内调用死锁。
 pub struct ScriptSignalBus {
     signals: Mutex<
         AHashMap<
             String,
-            Vec<(ConnectionId, Box<dyn Fn(&serde_json::Value) + Send + Sync>)>,
+            Vec<(ConnectionId, Arc<dyn Fn(&serde_json::Value) + Send + Sync>)>,
         >,
     >,
 }
@@ -254,7 +264,7 @@ impl ScriptSignalBus {
             .lock()
             .entry(signal.to_string())
             .or_default()
-            .push((id, Box::new(callback)));
+            .push((id, Arc::new(callback)));
         id
     }
 
@@ -267,12 +277,18 @@ impl ScriptSignalBus {
     }
 
     /// 发射信号（带 JSON 参数）
+    ///
+    /// 先克隆 Arc 列表出锁，再在锁外调用回调，避免死锁。
     pub fn emit(&self, signal: &str, params: &serde_json::Value) {
-        let signals = self.signals.lock();
-        if let Some(handlers) = signals.get(signal) {
-            for (_, cb) in handlers {
-                cb(params);
-            }
+        let callbacks: Vec<Arc<dyn Fn(&serde_json::Value) + Send + Sync>> = {
+            let signals = self.signals.lock();
+            signals
+                .get(signal)
+                .map(|h| h.iter().map(|(_, cb)| Arc::clone(cb)).collect())
+                .unwrap_or_default()
+        };
+        for cb in &callbacks {
+            cb(params);
         }
     }
 
@@ -402,5 +418,23 @@ mod tests {
         assert_eq!(r.len(), 2);
         assert_eq!(r[0], 100);
         assert_eq!(r[1], 200);
+    }
+
+    #[test]
+    fn test_signal_bus_no_deadlock() {
+        // 确保 emit 时回调内部可以再次访问 bus（如不重入锁则无死锁）
+        let bus = Arc::new(SignalBus::new());
+        let b = Arc::clone(&bus);
+        let count = Arc::new(AtomicU32::new(0));
+        let c = count.clone();
+
+        bus.connect("test", move || {
+            // 回调内部访问另一个信号，测试无死锁
+            b.has_connections("other");
+            c.fetch_add(1, Ordering::Relaxed);
+        });
+
+        bus.emit("test");
+        assert_eq!(count.load(Ordering::Relaxed), 1);
     }
 }

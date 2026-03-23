@@ -36,6 +36,9 @@ tracing.workspace = true
 # Utilities
 uuid.workspace = true
 
+[lints]
+workspace = true
+
 [features]
 default = ["backend-wgpu"]
 backend-wgpu = []

@@ -181,6 +181,7 @@ pub enum EngineState {
 }
 
 /// 引擎核心 - 管理生命周期和全局状态
+#[derive(Debug)]
 pub struct Engine {
     pub config: EngineConfig,
     state: EngineState,
@@ -212,6 +213,7 @@ impl Engine {
     }
 
     /// 引擎当前状态
+    #[must_use]
     pub fn state(&self) -> EngineState {
         self.state
     }
@@ -246,6 +248,7 @@ impl Engine {
     }
 
     /// 是否正在运行
+    #[must_use]
     pub fn is_running(&self) -> bool {
         self.state == EngineState::Running
     }

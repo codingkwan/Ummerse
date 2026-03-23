@@ -11,24 +11,56 @@ members = [
     "crates/ummerse-editor",
     "crates/ummerse-runtime",
     "crates/ummerse-plugin",
+    "crates/ummerse-mcp",
 ]
 resolver = "2"
 
 [workspace.package]
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
+rust-version = "1.85"
 authors = ["Ummerse Team"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/ummerse/ummerse"
 homepage = "https://ummerse.dev"
 description = "A modern 2D/3D game engine built with Rust"
 
+# ── 统一 Lint 规则（所有 crate 继承）──────────────────────────────────────────
+[workspace.lints.rust]
+unsafe_code = "deny"
+missing_debug_implementations = "warn"
+unreachable_pub = "warn"
+unused_qualifications = "warn"
+
+[workspace.lints.clippy]
+# 正确性
+correctness = { level = "deny", priority = -1 }
+# 性能
+perf = { level = "warn", priority = -1 }
+# 风格
+style = { level = "warn", priority = -1 }
+# 复杂度
+complexity = { level = "warn", priority = -1 }
+# 具体规则
+enum_glob_use = "warn"
+needless_pass_by_value = "warn"
+redundant_closure_for_method_calls = "warn"
+cloned_instead_of_copied = "warn"
+flat_map_option = "warn"
+manual_let_else = "warn"
+semicolon_if_nothing_returned = "warn"
+# 允许的规则（游戏引擎常见模式）
+too_many_arguments = "allow"
+type_complexity = "allow"
+module_inception = "allow"
+new_without_default = "allow"
+
 # ── Workspace 共享依赖（避免版本碎片化，加速编译）────────────────────────────
 [workspace.dependencies]
 
 # ── Core ECS via Bevy（仅 runtime/editor 引入完整 Bevy，其他 crate 使用 bevy_ecs）
-bevy_ecs    = { version = "0.15", features = ["bevy_reflect"] }
-bevy_app    = { version = "0.15" }
+bevy_ecs = { version = "0.15", features = ["bevy_reflect"] }
+bevy_app = { version = "0.15" }
 bevy_reflect = { version = "0.15" }
 
 # 完整 Bevy（仅运行时和编辑器使用）
@@ -52,53 +84,62 @@ bevy = { version = "0.15", default-features = false, features = [
     "ktx2",
     "tonemapping_luts",
     "serialize",
-    # 根据平台条件选择（通过 [target] 表更精确，此处保留通用 fallback）
     "x11",
     "wayland",
 ] }
 
 # ── GPU / Rendering ────────────────────────────────────────────────────────────
-wgpu = { version = "22", features = ["wgsl"] }
-naga = { version = "22", features = ["wgsl-in", "wgsl-out"] }
+wgpu = { version = "24", features = ["wgsl"] }
+naga = { version = "24", features = ["wgsl-in", "wgsl-out"] }
 
 # ── Serialization ──────────────────────────────────────────────────────────────
-serde       = { version = "1", features = ["derive"] }
-serde_json  = "1"
-toml        = { version = "0.8", default-features = false, features = ["parse", "display"] }
-ron         = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = { version = "0.8", default-features = false, features = [
+    "parse",
+    "display",
+] }
+ron = "0.8"
 
 # ── Async runtime ──────────────────────────────────────────────────────────────
-tokio       = { version = "1", features = ["rt", "rt-multi-thread", "sync", "time", "io-util", "macros"] }
+tokio = { version = "1", features = [
+    "rt",
+    "rt-multi-thread",
+    "sync",
+    "time",
+    "io-util",
+    "macros",
+] }
 async-trait = "0.1"
 
 # ── Error handling ─────────────────────────────────────────────────────────────
-anyhow     = "1"
-thiserror  = "2"
+anyhow = "1"
+thiserror = "2"
 
 # ── Logging ────────────────────────────────────────────────────────────────────
-tracing            = "0.1"
+tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 
 # ── Math ───────────────────────────────────────────────────────────────────────
-glam      = { version = "0.29", features = ["serde", "bytemuck"] }
-bytemuck  = { version = "1", features = ["derive"] }
+glam = { version = "0.29", features = ["serde", "bytemuck"] }
+bytemuck = { version = "1", features = ["derive"] }
 
 # ── UUID ───────────────────────────────────────────────────────────────────────
 uuid = { version = "1", features = ["v4", "serde"] }
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
-dashmap    = "6"
+dashmap = "6"
 parking_lot = "0.12"
-once_cell  = "1"
-bitflags   = "2"
-smallvec   = { version = "1", features = ["serde"] }
-indexmap   = { version = "2", features = ["serde"] }
-ahash      = "0.8"
+bitflags = "2"
+once_cell = "1"
+smallvec = { version = "1", features = ["serde"] }
+indexmap = { version = "2", features = ["serde"] }
+ahash = "0.8"
 
 # ── Wasm support ───────────────────────────────────────────────────────────────
 wasm-bindgen = "0.2"
-js-sys       = "0.3"
-web-sys      = { version = "0.3", features = [
+js-sys = "0.3"
+web-sys = { version = "0.3", features = [
     "Window",
     "Document",
     "Element",
@@ -109,10 +150,15 @@ web-sys      = { version = "0.3", features = [
 
 # ── File system ────────────────────────────────────────────────────────────────
 walkdir = "2"
-notify  = { version = "6", default-features = false, features = ["macos_fsevent"] }
+notify = { version = "6", default-features = false, features = [
+    "macos_fsevent",
+] }
 
 # ── Image processing ───────────────────────────────────────────────────────────
-image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+image = { version = "0.25", default-features = false, features = [
+    "png",
+    "jpeg",
+] }
 
 # ── Scripting / Plugin ─────────────────────────────────────────────────────────
 wasmtime = { version = "27", default-features = false, features = [
@@ -125,78 +171,63 @@ wasmtime = { version = "27", default-features = false, features = [
 taffy = "0.5"
 
 # ── Workspace internal crates ──────────────────────────────────────────────────
-ummerse-core     = { path = "crates/ummerse-core" }
-ummerse-math     = { path = "crates/ummerse-math" }
+ummerse-core = { path = "crates/ummerse-core" }
+ummerse-math = { path = "crates/ummerse-math" }
 ummerse-renderer = { path = "crates/ummerse-renderer" }
-ummerse-scene    = { path = "crates/ummerse-scene" }
-ummerse-asset    = { path = "crates/ummerse-asset" }
-ummerse-script   = { path = "crates/ummerse-script" }
-ummerse-physics  = { path = "crates/ummerse-physics" }
-ummerse-audio    = { path = "crates/ummerse-audio" }
-ummerse-editor   = { path = "crates/ummerse-editor" }
-ummerse-runtime  = { path = "crates/ummerse-runtime" }
-ummerse-plugin   = { path = "crates/ummerse-plugin" }
+ummerse-scene = { path = "crates/ummerse-scene" }
+ummerse-asset = { path = "crates/ummerse-asset" }
+ummerse-script = { path = "crates/ummerse-script" }
+ummerse-physics = { path = "crates/ummerse-physics" }
+ummerse-audio = { path = "crates/ummerse-audio" }
+ummerse-editor = { path = "crates/ummerse-editor" }
+ummerse-runtime = { path = "crates/ummerse-runtime" }
+ummerse-plugin = { path = "crates/ummerse-plugin" }
+ummerse-mcp = { path = "crates/ummerse-mcp" }
 
 # ── Build Profiles ─────────────────────────────────────────────────────────────
+
+# ── dev profile：增量编译 + 第三方依赖全优化 ─────────────────────────────────
 [profile.dev]
-opt-level   = 1      # 基础优化，保留调试能力
-debug       = true
-incremental = true   # 增量编译（关键！）
-# 减少 codegen-units 以提高增量命中率
+opt-level = 1
+debug = "line-tables-only"
+incremental = true
 codegen-units = 256
 
+# 所有第三方 crate 始终以 opt-level=3 编译（只编译一次后常驻缓存）
 [profile.dev.package."*"]
-# 所有第三方依赖始终全优化（避免每次重新编译时出现慢依赖）
 opt-level = 3
-debug     = false    # 第三方不需要调试信息，减少体积
+debug = false
 
-# 以下大型依赖单独指定（确保优化）
-[profile.dev.package.bevy_render]
-opt-level = 3
-[profile.dev.package.bevy_pbr]
-opt-level = 3
-[profile.dev.package.bevy_core_pipeline]
-opt-level = 3
-[profile.dev.package.wgpu]
-opt-level = 3
-[profile.dev.package.wgpu-core]
-opt-level = 3
-[profile.dev.package.wgpu-hal]
-opt-level = 3
-[profile.dev.package.naga]
-opt-level = 3
-[profile.dev.package.image]
-opt-level = 3
-[profile.dev.package.wasmtime]
-opt-level = 3
-[profile.dev.package.cranelift-codegen]
-opt-level = 3
-
+# ── release profile ───────────────────────────────────────────────────────────
 [profile.release]
-opt-level     = 3
-lto           = "thin"    # thin-LTO（比 fat-LTO 快很多，优化几乎相同）
-codegen-units = 4         # 平衡并行度与优化质量
-strip         = "symbols" # 精确去除符号
-panic         = "abort"   # 减少 panic 开销
+opt-level = 3
+lto = "thin"
+codegen-units = 4
+strip = "symbols"
+panic = "abort"
+debug = false
 
+# ── release-fast profile（快速发布构建，牺牲少量优化换速度）──────────────────
 [profile.release-fast]
-inherits      = "release"
-lto           = false
-codegen-units = 16        # 最大并行度，牺牲少量优化换速度
+inherits = "release"
+lto = false
+codegen-units = 16
 
+# ── wasm-release profile ──────────────────────────────────────────────────────
 [profile.wasm-release]
-inherits      = "release"
-opt-level     = "s"       # 优先体积
+inherits = "release"
+opt-level = "s"
 codegen-units = 1
-strip         = true
-lto           = "fat"     # Wasm 需要 fat-LTO 最小化体积
+strip = true
+lto = "fat"
 
-# ── 测试 profile ──────────────────────────────────────────────────────────────
+# ── test profile ──────────────────────────────────────────────────────────────
 [profile.test]
-opt-level   = 1
+opt-level = 1
 incremental = true
+debug = "line-tables-only"
 
 [profile.bench]
-opt-level     = 3
-lto           = "thin"
+opt-level = 3
+lto = "thin"
 codegen-units = 1

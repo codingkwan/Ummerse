@@ -2,8 +2,7 @@
 //!
 //! 参考 Godot Input 单例设计，提供轮询和事件两种输入获取方式。
 
-use std::collections::{HashMap, HashSet};
-
+use ahash::AHashMap;
 use serde::{Deserialize, Serialize};
 
 // ── 键码 ──────────────────────────────────────────────────────────────────────
@@ -12,28 +11,116 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum KeyCode {
     // 字母键
-    A, B, C, D, E, F, G, H, I, J, K, L, M,
-    N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
+    A,
+    B,
+    C,
+    D,
+    E,
+    F,
+    G,
+    H,
+    I,
+    J,
+    K,
+    L,
+    M,
+    N,
+    O,
+    P,
+    Q,
+    R,
+    S,
+    T,
+    U,
+    V,
+    W,
+    X,
+    Y,
+    Z,
     // 数字键（键盘行）
-    Key0, Key1, Key2, Key3, Key4, Key5, Key6, Key7, Key8, Key9,
+    Key0,
+    Key1,
+    Key2,
+    Key3,
+    Key4,
+    Key5,
+    Key6,
+    Key7,
+    Key8,
+    Key9,
     // 功能键
-    F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12,
+    F1,
+    F2,
+    F3,
+    F4,
+    F5,
+    F6,
+    F7,
+    F8,
+    F9,
+    F10,
+    F11,
+    F12,
     // 特殊键
-    Space, Enter, Escape, Tab, Backspace, Delete, Insert,
-    Home, End, PageUp, PageDown,
+    Space,
+    Enter,
+    Escape,
+    Tab,
+    Backspace,
+    Delete,
+    Insert,
+    Home,
+    End,
+    PageUp,
+    PageDown,
     // 方向键
-    Left, Right, Up, Down,
+    Left,
+    Right,
+    Up,
+    Down,
     // 修饰键
-    LShift, RShift, LCtrl, RCtrl, LAlt, RAlt, LSuper, RSuper,
+    LShift,
+    RShift,
+    LCtrl,
+    RCtrl,
+    LAlt,
+    RAlt,
+    LSuper,
+    RSuper,
     // 数字小键盘
-    Numpad0, Numpad1, Numpad2, Numpad3, Numpad4,
-    Numpad5, Numpad6, Numpad7, Numpad8, Numpad9,
-    NumpadAdd, NumpadSubtract, NumpadMultiply, NumpadDivide,
-    NumpadDecimal, NumpadEnter,
+    Numpad0,
+    Numpad1,
+    Numpad2,
+    Numpad3,
+    Numpad4,
+    Numpad5,
+    Numpad6,
+    Numpad7,
+    Numpad8,
+    Numpad9,
+    NumpadAdd,
+    NumpadSubtract,
+    NumpadMultiply,
+    NumpadDivide,
+    NumpadDecimal,
+    NumpadEnter,
     // 其他
-    Slash, Backslash, Semicolon, Quote, Comma, Period,
-    LeftBracket, RightBracket, Grave, Minus, Equal,
-    CapsLock, NumLock, ScrollLock, PrintScreen, Pause,
+    Slash,
+    Backslash,
+    Semicolon,
+    Quote,
+    Comma,
+    Period,
+    LeftBracket,
+    RightBracket,
+    Grave,
+    Minus,
+    Equal,
+    CapsLock,
+    NumLock,
+    ScrollLock,
+    PrintScreen,
+    Pause,
     /// 未知键码
     Unknown(u32),
 }
@@ -104,11 +191,12 @@ enum ButtonState {
 /// 1. 收集原生输入事件
 /// 2. 更新状态机（JustPressed → Held → JustReleased → Released）
 /// 3. 分发到输入动作映射
+#[derive(Debug)]
 pub struct InputManager {
-    /// 键盘状态
-    keyboard: HashMap<KeyCode, ButtonState>,
+    /// 键盘状态（使用 AHashMap 提升查询性能）
+    keyboard: AHashMap<KeyCode, ButtonState>,
     /// 鼠标按键状态
-    mouse_buttons: HashMap<MouseButton, ButtonState>,
+    mouse_buttons: AHashMap<MouseButton, ButtonState>,
     /// 鼠标光标位置（像素）
     mouse_position: glam::Vec2,
     /// 本帧鼠标移动量
@@ -116,28 +204,27 @@ pub struct InputManager {
     /// 鼠标滚轮增量（Y 轴）
     scroll_delta: f32,
     /// 动作映射（动作名 → 触发的键码列表）
-    action_map: HashMap<InputAction, Vec<KeyCode>>,
-    /// 动作状态（本帧缓存）
-    action_states: HashMap<InputAction, ButtonState>,
+    action_map: AHashMap<InputAction, Vec<KeyCode>>,
 }
 
 impl InputManager {
     /// 创建输入管理器
     pub fn new() -> Self {
         Self {
-            keyboard: HashMap::new(),
-            mouse_buttons: HashMap::new(),
+            keyboard: AHashMap::new(),
+            mouse_buttons: AHashMap::new(),
             mouse_position: glam::Vec2::ZERO,
             mouse_delta: glam::Vec2::ZERO,
             scroll_delta: 0.0,
-            action_map: HashMap::new(),
-            action_states: HashMap::new(),
+            action_map: AHashMap::new(),
         }
     }
 
     // ── 键盘查询 ──────────────────────────────────────────────────────────
 
     /// 键是否被按住（含 JustPressed）
+    #[inline]
+    #[must_use]
     pub fn is_key_pressed(&self, key: KeyCode) -> bool {
         matches!(
             self.keyboard.get(&key),
@@ -146,11 +233,15 @@ impl InputManager {
     }
 
     /// 键是否在本帧刚刚按下
+    #[inline]
+    #[must_use]
     pub fn is_key_just_pressed(&self, key: KeyCode) -> bool {
         matches!(self.keyboard.get(&key), Some(ButtonState::JustPressed))
     }
 
     /// 键是否在本帧刚刚释放
+    #[inline]
+    #[must_use]
     pub fn is_key_just_released(&self, key: KeyCode) -> bool {
         matches!(self.keyboard.get(&key), Some(ButtonState::JustReleased))
     }
@@ -158,6 +249,8 @@ impl InputManager {
     // ── 鼠标查询 ──────────────────────────────────────────────────────────
 
     /// 鼠标按键是否被按住
+    #[inline]
+    #[must_use]
     pub fn is_mouse_button_pressed(&self, btn: MouseButton) -> bool {
         matches!(
             self.mouse_buttons.get(&btn),
@@ -166,11 +259,15 @@ impl InputManager {
     }
 
     /// 鼠标按键是否在本帧刚刚按下
+    #[inline]
+    #[must_use]
     pub fn is_mouse_button_just_pressed(&self, btn: MouseButton) -> bool {
         matches!(self.mouse_buttons.get(&btn), Some(ButtonState::JustPressed))
     }
 
     /// 鼠标按键是否在本帧刚刚释放
+    #[inline]
+    #[must_use]
     pub fn is_mouse_button_just_released(&self, btn: MouseButton) -> bool {
         matches!(
             self.mouse_buttons.get(&btn),
@@ -204,38 +301,39 @@ impl InputManager {
     }
 
     /// 动作是否被触发（持续）
+    #[must_use]
     pub fn is_action_pressed(&self, action: &InputAction) -> bool {
-        if let Some(keys) = self.action_map.get(action) {
-            keys.iter().any(|&k| self.is_key_pressed(k))
-        } else {
-            false
-        }
+        self.action_map
+            .get(action)
+            .map(|keys| keys.iter().any(|&k| self.is_key_pressed(k)))
+            .unwrap_or(false)
     }
 
     /// 动作是否在本帧刚触发
+    #[must_use]
     pub fn is_action_just_pressed(&self, action: &InputAction) -> bool {
-        if let Some(keys) = self.action_map.get(action) {
-            keys.iter().any(|&k| self.is_key_just_pressed(k))
-        } else {
-            false
-        }
+        self.action_map
+            .get(action)
+            .map(|keys| keys.iter().any(|&k| self.is_key_just_pressed(k)))
+            .unwrap_or(false)
     }
 
     /// 动作是否在本帧刚释放
+    #[must_use]
     pub fn is_action_just_released(&self, action: &InputAction) -> bool {
-        if let Some(keys) = self.action_map.get(action) {
-            keys.iter().any(|&k| self.is_key_just_released(k))
-        } else {
-            false
-        }
+        self.action_map
+            .get(action)
+            .map(|keys| keys.iter().any(|&k| self.is_key_just_released(k)))
+            .unwrap_or(false)
     }
 
     /// 获取轴输入值（-1.0 / 0.0 / 1.0）
     ///
     /// 正方向键按下返回 1.0，负方向键按下返回 -1.0。
+    #[inline]
     pub fn get_axis(&self, negative: KeyCode, positive: KeyCode) -> f32 {
-        let pos = if self.is_key_pressed(positive) { 1.0 } else { 0.0 };
-        let neg = if self.is_key_pressed(negative) { 1.0 } else { 0.0 };
+        let pos = f32::from(self.is_key_pressed(positive));
+        let neg = f32::from(self.is_key_pressed(negative));
         pos - neg
     }
 
@@ -269,7 +367,10 @@ impl InputManager {
 
     /// 通知鼠标按键按下
     pub fn press_mouse_button(&mut self, btn: MouseButton) {
-        let state = self.mouse_buttons.entry(btn).or_insert(ButtonState::Released);
+        let state = self
+            .mouse_buttons
+            .entry(btn)
+            .or_insert(ButtonState::Released);
         if matches!(state, ButtonState::Released | ButtonState::JustReleased) {
             *state = ButtonState::JustPressed;
         }
@@ -315,7 +416,8 @@ impl InputManager {
     }
 
     /// 获取所有当前按下的键
-    pub fn pressed_keys(&self) -> HashSet<KeyCode> {
+    #[must_use]
+    pub fn pressed_keys(&self) -> Vec<KeyCode> {
         self.keyboard
             .iter()
             .filter(|(_, s)| matches!(s, ButtonState::JustPressed | ButtonState::Held))
