@@ -1,0 +1,28 @@
+[package]
+name = "ummerse-renderer"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "2D/3D rendering pipeline for Ummerse using wgpu and Bevy"
+
+[dependencies]
+ummerse-core.workspace = true
+ummerse-math.workspace = true
+ummerse-asset.workspace = true
+wgpu.workspace = true
+naga.workspace = true
+bevy = { workspace = true }
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+bytemuck.workspace = true
+glam.workspace = true
+image.workspace = true
+
+[features]
+default = ["backend-wgpu"]
+backend-wgpu = []
+backend-webgl = []

@@ -1,0 +1,11 @@
+C:\Users\ghx\coding\ummerse\target\debug\deps\bevy_animation-b58816c7ea5c688f.d: C:\Users\ghx\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bevy_animation-0.15.3\src\lib.rs C:\Users\ghx\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bevy_animation-0.15.3\src\animatable.rs C:\Users\ghx\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bevy_animation-0.15.3\src\animation_curves.rs C:\Users\ghx\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bevy_animation-0.15.3\src\gltf_curves.rs C:\Users\ghx\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bevy_animation-0.15.3\src\graph.rs C:\Users\ghx\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bevy_animation-0.15.3\src\transition.rs C:\Users\ghx\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bevy_animation-0.15.3\src\util.rs
+
+C:\Users\ghx\coding\ummerse\target\debug\deps\libbevy_animation-b58816c7ea5c688f.rmeta: C:\Users\ghx\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bevy_animation-0.15.3\src\lib.rs C:\Users\ghx\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bevy_animation-0.15.3\src\animatable.rs C:\Users\ghx\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bevy_animation-0.15.3\src\animation_curves.rs C:\Users\ghx\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bevy_animation-0.15.3\src\gltf_curves.rs C:\Users\ghx\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bevy_animation-0.15.3\src\graph.rs C:\Users\ghx\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bevy_animation-0.15.3\src\transition.rs C:\Users\ghx\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bevy_animation-0.15.3\src\util.rs
+
+C:\Users\ghx\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bevy_animation-0.15.3\src\lib.rs:
+C:\Users\ghx\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bevy_animation-0.15.3\src\animatable.rs:
+C:\Users\ghx\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bevy_animation-0.15.3\src\animation_curves.rs:
+C:\Users\ghx\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bevy_animation-0.15.3\src\gltf_curves.rs:
+C:\Users\ghx\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bevy_animation-0.15.3\src\graph.rs:
+C:\Users\ghx\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bevy_animation-0.15.3\src\transition.rs:
+C:\Users\ghx\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bevy_animation-0.15.3\src\util.rs:

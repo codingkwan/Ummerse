@@ -1,0 +1,18 @@
+[package]
+name = "ummerse-audio"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Audio system for Ummerse game engine"
+
+[dependencies]
+ummerse-core.workspace = true
+ummerse-asset.workspace = true
+bevy = { workspace = true }
+glam.workspace = true
+uuid.workspace = true
+serde.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true

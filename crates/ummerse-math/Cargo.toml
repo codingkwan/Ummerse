@@ -1,0 +1,12 @@
+[package]
+name = "ummerse-math"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Math utilities for the Ummerse game engine"
+
+[dependencies]
+glam.workspace = true
+bytemuck.workspace = true
+serde.workspace = true

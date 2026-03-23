@@ -1,0 +1,2 @@
+cargo:rerun-if-changed=build.rs
+cargo:rustc-env=DEBUG_OUTPUT_DIR=C:\Users\ghx\coding\ummerse\target\debug\build\wasmtime-component-macro-c399a7980c3654d9\out

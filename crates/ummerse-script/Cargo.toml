@@ -1,0 +1,29 @@
+[package]
+name = "ummerse-script"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "WebAssembly scripting runtime for Ummerse"
+
+[dependencies]
+ummerse-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tokio.workspace = true
+async-trait.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+wasmtime.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen.workspace = true
+js-sys.workspace = true
+web-sys.workspace = true
+
+[features]
+default = []
+wasm-host = []

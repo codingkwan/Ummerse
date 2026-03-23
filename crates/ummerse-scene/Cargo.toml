@@ -1,0 +1,23 @@
+[package]
+name = "ummerse-scene"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Scene tree, node system, and scene serialization for Ummerse"
+
+[dependencies]
+ummerse-core.workspace = true
+ummerse-math.workspace = true
+ummerse-asset.workspace = true
+bevy = { workspace = true }
+glam.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+ron.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+indexmap.workspace = true
+smallvec.workspace = true

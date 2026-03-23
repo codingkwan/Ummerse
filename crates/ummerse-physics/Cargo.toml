@@ -1,0 +1,18 @@
+[package]
+name = "ummerse-physics"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Physics simulation (2D/3D) for Ummerse"
+
+[dependencies]
+ummerse-core.workspace = true
+ummerse-math.workspace = true
+ummerse-scene.workspace = true
+bevy = { workspace = true }
+serde.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+glam.workspace = true

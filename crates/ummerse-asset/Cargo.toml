@@ -1,0 +1,29 @@
+[package]
+name = "ummerse-asset"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Asset management, loading, and hot-reloading for Ummerse"
+
+[dependencies]
+ummerse-core.workspace = true
+ummerse-math.workspace = true
+bytemuck.workspace = true
+bevy = { workspace = true }
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+dashmap.workspace = true
+parking_lot.workspace = true
+walkdir.workspace = true
+image.workspace = true
+tokio.workspace = true
+async-trait.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+notify.workspace = true
