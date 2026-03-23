@@ -32,8 +32,8 @@ pub use resource::{Res, ResMut, Resource};
 pub use signal::{Signal, SignalBus};
 pub use time::Time;
 
-// Re-export Bevy ECS 核心组件（方便统一使用）
-pub use bevy::ecs::prelude::*;
+// Re-export bevy_ecs 核心组件（轻量，不引入完整 Bevy）
+pub use bevy_ecs::prelude::*;
 
 /// Ummerse 引擎版本
 pub const ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");

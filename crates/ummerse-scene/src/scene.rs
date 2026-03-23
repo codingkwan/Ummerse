@@ -1,8 +1,8 @@
 //! 场景资产 - 可序列化的场景数据
 
-use serde::{Deserialize, Serialize};
-use ummerse_core::node::{NodeId, NodeType};
 use crate::SceneNodeData;
+use serde::{Deserialize, Serialize};
+use ummerse_core::node::NodeId;
 
 /// 场景资产文件（.uscn 格式）
 #[derive(Debug, Clone, Serialize, Deserialize)]

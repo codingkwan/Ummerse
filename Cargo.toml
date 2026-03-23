@@ -23,8 +23,15 @@ repository = "https://github.com/ummerse/ummerse"
 homepage = "https://ummerse.dev"
 description = "A modern 2D/3D game engine built with Rust"
 
+# ── 编译速度优化 ───────────────────────────────────────────────────────────────
+# 共享依赖版本，避免重复编译同版本不同来源的 crate
 [workspace.dependencies]
-# Core ECS via Bevy
+
+# ── Core ECS via Bevy（仅 runtime/editor 引入完整 Bevy，其他 crate 使用 bevy_ecs）
+bevy_ecs = "0.15"
+bevy_app = "0.15"
+bevy_reflect = "0.15"
+# 完整 Bevy（仅运行时和编辑器使用）
 bevy = { version = "0.15", default-features = false, features = [
     "bevy_core_pipeline",
     "bevy_pbr",
@@ -49,36 +56,36 @@ bevy = { version = "0.15", default-features = false, features = [
     "serialize",
 ] }
 
-# GPU / Rendering
+# ── GPU / Rendering ────────────────────────────────────────────────────────────
 wgpu = { version = "22", features = ["wgsl"] }
 naga = { version = "22", features = ["wgsl-in", "wgsl-out"] }
 
-# Serialization
+# ── Serialization ──────────────────────────────────────────────────────────────
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-toml = "0.8"
+toml = { version = "0.8", default-features = false, features = ["parse"] }
 ron = "0.8"
 
-# Async runtime
-tokio = { version = "1", features = ["full"] }
+# ── Async runtime ──────────────────────────────────────────────────────────────
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "sync", "time", "io-util", "macros"] }
 async-trait = "0.1"
 
-# Error handling
+# ── Error handling ─────────────────────────────────────────────────────────────
 anyhow = "1"
 thiserror = "2"
 
-# Logging
+# ── Logging ────────────────────────────────────────────────────────────────────
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
-# Math
+# ── Math ───────────────────────────────────────────────────────────────────────
 glam = { version = "0.29", features = ["serde"] }
 bytemuck = { version = "1", features = ["derive"] }
 
-# UUID
+# ── UUID ───────────────────────────────────────────────────────────────────────
 uuid = { version = "1", features = ["v4", "serde"] }
 
-# Utilities
+# ── Utilities ─────────────────────────────────────────────────────────────────
 dashmap = "6"
 parking_lot = "0.12"
 once_cell = "1"
@@ -87,7 +94,7 @@ smallvec = { version = "1", features = ["serde"] }
 indexmap = { version = "2", features = ["serde"] }
 ahash = "0.8"
 
-# Wasm support
+# ── Wasm support ───────────────────────────────────────────────────────────────
 wasm-bindgen = "0.2"
 js-sys = "0.3"
 web-sys = { version = "0.3", features = [
@@ -99,45 +106,73 @@ web-sys = { version = "0.3", features = [
     "console",
 ] }
 
-# File system
+# ── File system ────────────────────────────────────────────────────────────────
 walkdir = "2"
-notify = "6"
+notify = { version = "6", default-features = false, features = ["macos_fsevent"] }
 
-# Image processing
-image = { version = "0.25", default-features = false, features = ["png", "jpeg", "bmp", "webp"] }
+# ── Image processing ───────────────────────────────────────────────────────────
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 
-# Scripting / Plugin
-wasmtime = { version = "27", features = ["component-model"] }
+# ── Scripting / Plugin ─────────────────────────────────────────────────────────
+wasmtime = { version = "27", default-features = false, features = [
+    "runtime",
+    "cranelift",
+    "component-model",
+] }
 
-# UI (GPUI-like abstraction layer - using taffy for layout)
+# ── UI Layout ─────────────────────────────────────────────────────────────────
 taffy = "0.5"
 
-# Workspace internal crates
-ummerse-core = { path = "crates/ummerse-core" }
-ummerse-math = { path = "crates/ummerse-math" }
+# ── Workspace internal crates ──────────────────────────────────────────────────
+ummerse-core     = { path = "crates/ummerse-core" }
+ummerse-math     = { path = "crates/ummerse-math" }
 ummerse-renderer = { path = "crates/ummerse-renderer" }
-ummerse-scene = { path = "crates/ummerse-scene" }
-ummerse-asset = { path = "crates/ummerse-asset" }
-ummerse-script = { path = "crates/ummerse-script" }
-ummerse-physics = { path = "crates/ummerse-physics" }
-ummerse-audio = { path = "crates/ummerse-audio" }
-ummerse-editor = { path = "crates/ummerse-editor" }
-ummerse-runtime = { path = "crates/ummerse-runtime" }
-ummerse-plugin = { path = "crates/ummerse-plugin" }
+ummerse-scene    = { path = "crates/ummerse-scene" }
+ummerse-asset    = { path = "crates/ummerse-asset" }
+ummerse-script   = { path = "crates/ummerse-script" }
+ummerse-physics  = { path = "crates/ummerse-physics" }
+ummerse-audio    = { path = "crates/ummerse-audio" }
+ummerse-editor   = { path = "crates/ummerse-editor" }
+ummerse-runtime  = { path = "crates/ummerse-runtime" }
+ummerse-plugin   = { path = "crates/ummerse-plugin" }
 
+# ── Build Profiles ─────────────────────────────────────────────────────────────
 [profile.dev]
-opt-level = 1
+opt-level = 1           # 基础优化，保留调试信息
+debug = true
+incremental = true      # 增量编译（关键加速）
 
 [profile.dev.package."*"]
+opt-level = 3           # 第三方依赖始终全优化（避免每次重新编译慢）
+debug = false           # 第三方不需要调试信息
+
+# Bevy 依赖特别优化（大型依赖）
+[profile.dev.package.bevy_render]
+opt-level = 3
+[profile.dev.package.wgpu]
+opt-level = 3
+[profile.dev.package.naga]
+opt-level = 3
+[profile.dev.package.image]
+opt-level = 3
+[profile.dev.package.wasmtime]
 opt-level = 3
 
 [profile.release]
 opt-level = 3
-lto = "thin"
-codegen-units = 1
-strip = true
+lto = "thin"            # thin-LTO 比 fat-LTO 快很多
+codegen-units = 4       # 并行编译单元（比 1 快，但体积稍大）
+strip = "symbols"       # 去除符号（比 strip=true 更精确）
+panic = "abort"         # 减少 panic 开销和二进制体积
+
+[profile.release-fast]
+inherits = "release"
+lto = false
+codegen-units = 16      # 最大并行度，牺牲一点优化换速度
 
 [profile.wasm-release]
 inherits = "release"
-opt-level = "s"
+opt-level = "s"         # 优化体积
+codegen-units = 1
 strip = true
+lto = "fat"             # Wasm 需要 fat-LTO 以最小化体积

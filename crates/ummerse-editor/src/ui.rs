@@ -4,7 +4,6 @@
 //! 为编辑器提供跨平台的声明式 UI 描述。
 //! 实际渲染委托给 Bevy UI 或 WGPU 自绘。
 
-use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 /// UI 颜色（RGBA，0.0~1.0）

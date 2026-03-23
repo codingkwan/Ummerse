@@ -1,15 +1,15 @@
 //! 插件宿主 - 管理插件生命周期和通信
 
-use std::{collections::HashMap, sync::Arc};
-use dashmap::DashMap;
-use tokio::sync::mpsc;
-use tracing::{info, warn, error};
 use crate::{
     manifest::PluginManifest,
     protocol::{PluginMessage, ToolCall, ToolResult},
     tool::ToolRegistry,
-    Result, PluginError,
+    PluginError, Result,
 };
+use dashmap::DashMap;
+use std::sync::Arc;
+use tokio::sync::mpsc;
+use tracing::{error, info, warn};
 
 /// 插件实例 ID
 pub type PluginInstanceId = String;
@@ -37,7 +37,10 @@ impl PluginInstance {
     /// 向插件发送消息
     pub async fn send(&self, msg: PluginMessage) -> Result<()> {
         self.sender.send(msg).await.map_err(|e| {
-            PluginError::Communication(format!("Failed to send message to plugin '{}': {}", self.id, e))
+            PluginError::Communication(format!(
+                "Failed to send message to plugin '{}': {}",
+                self.id, e
+            ))
         })
     }
 
@@ -113,11 +116,10 @@ impl PluginHost {
 
     /// 从 JSON 清单字符串加载插件
     pub async fn load_plugin_from_json(&self, json: &str) -> Result<PluginInstanceId> {
-        let manifest = PluginManifest::from_json(json)
-            .map_err(|e| PluginError::LoadFailed {
-                name: "unknown".to_string(),
-                reason: e.to_string(),
-            })?;
+        let manifest = PluginManifest::from_json(json).map_err(|e| PluginError::LoadFailed {
+            name: "unknown".to_string(),
+            reason: e.to_string(),
+        })?;
         self.load_plugin(manifest).await
     }
 
@@ -136,7 +138,7 @@ impl PluginHost {
     /// 执行工具调用（由插件发起）
     pub async fn handle_tool_call(&self, caller_id: &str, call: ToolCall) -> ToolResult {
         // 检查插件是否有足够权限
-        if let Some(instance) = self.instances.get(caller_id) {
+        if self.instances.get(caller_id).is_some() {
             tracing::debug!("Plugin '{}' calling tool '{}'", caller_id, call.name);
         }
 
@@ -153,15 +155,27 @@ impl PluginHost {
                     let _ = instance.send(PluginMessage::ToolResult(result)).await;
                 }
             }
-            PluginMessage::Log { level, message, plugin_id } => {
-                match level {
-                    crate::protocol::LogLevel::Error => error!(target: "plugin", "[{}] {}", plugin_id, message),
-                    crate::protocol::LogLevel::Warn => warn!(target: "plugin", "[{}] {}", plugin_id, message),
-                    crate::protocol::LogLevel::Info => info!(target: "plugin", "[{}] {}", plugin_id, message),
-                    crate::protocol::LogLevel::Debug => tracing::debug!(target: "plugin", "[{}] {}", plugin_id, message),
-                    crate::protocol::LogLevel::Trace => tracing::trace!(target: "plugin", "[{}] {}", plugin_id, message),
+            PluginMessage::Log {
+                level,
+                message,
+                plugin_id,
+            } => match level {
+                crate::protocol::LogLevel::Error => {
+                    error!(target: "plugin", "[{}] {}", plugin_id, message)
                 }
-            }
+                crate::protocol::LogLevel::Warn => {
+                    warn!(target: "plugin", "[{}] {}", plugin_id, message)
+                }
+                crate::protocol::LogLevel::Info => {
+                    info!(target: "plugin", "[{}] {}", plugin_id, message)
+                }
+                crate::protocol::LogLevel::Debug => {
+                    tracing::debug!(target: "plugin", "[{}] {}", plugin_id, message)
+                }
+                crate::protocol::LogLevel::Trace => {
+                    tracing::trace!(target: "plugin", "[{}] {}", plugin_id, message)
+                }
+            },
             PluginMessage::Shutdown => {
                 info!("Plugin '{}' requested shutdown", from_id);
                 let _ = self.unload_plugin(from_id).await;

@@ -4,15 +4,24 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "Physics simulation (2D/3D) for Ummerse"
+description = "2D/3D physics engine abstraction for Ummerse"
 
 [dependencies]
 ummerse-core.workspace = true
 ummerse-math.workspace = true
-ummerse-scene.workspace = true
-bevy = { workspace = true }
+
+# Serialization
 serde.workspace = true
+
+# Error handling
 anyhow.workspace = true
 thiserror.workspace = true
+
+# Logging
 tracing.workspace = true
+
+# Math
 glam.workspace = true
+
+[features]
+default = []

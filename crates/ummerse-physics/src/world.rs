@@ -7,7 +7,7 @@ use glam::{Vec2, Vec3};
 use crate::{
     body::{RigidBody2d, RigidBody3d},
     collider::{Collider2d, Collider3d},
-    CollisionEvent, PhysicsMaterial,
+    CollisionEvent, CollisionEventKind, PhysicsMaterial,
 };
 
 /// 碰撞响应配置
@@ -180,12 +180,26 @@ impl PhysicsWorld2d {
                 self.resolve_collision(id_a, id_b, contact);
             }
 
+            // 判断是新碰撞还是持续碰撞
+            let pair = if id_a < id_b {
+                (id_a, id_b)
+            } else {
+                (id_b, id_a)
+            };
+            let kind = if self.active_contacts.contains_key(&pair) {
+                CollisionEventKind::Persisted
+            } else {
+                CollisionEventKind::Entered
+            };
+            self.active_contacts.insert(pair, contact.penetration);
+
             events.push(CollisionEvent {
                 body_a: id_a,
                 body_b: id_b,
                 contact_point: contact.contact_point.extend(0.0),
                 contact_normal: contact.normal.extend(0.0),
                 penetration: contact.penetration,
+                kind,
             });
         }
 

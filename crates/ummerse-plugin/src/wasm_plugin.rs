@@ -1,100 +1,237 @@
-//! Wasm 插件支持 - 在 Wasmtime 沙盒中运行插件
+//! Wasm 插件运行时
+//!
+//! 使用 wasmtime 在沙箱中运行 Wasm 插件，
+//! 插件通过 JSON 消息协议与引擎通信。
 
-use crate::{Result, PluginError, manifest::PluginManifest};
+use crate::{
+    manifest::PluginManifest,
+    protocol::{ToolCall, ToolResult},
+    PluginError, Result,
+};
 
-/// Wasm 插件实例（桌面平台，Wasmtime 运行时）
+/// Wasm 插件实例（包含 wasmtime 运行时）
+///
+/// 仅在非 Wasm 目标平台上编译（桌面端）。
 #[cfg(not(target_arch = "wasm32"))]
-pub struct WasmPluginInstance {
+pub struct WasmPlugin {
+    /// 插件清单
     pub manifest: PluginManifest,
+    /// wasmtime 引擎（共享，跨实例复用）
     engine: wasmtime::Engine,
+    /// wasmtime Store（持有实例状态）
+    store: wasmtime::Store<WasmPluginState>,
+    /// wasmtime 实例
+    instance: wasmtime::Instance,
+}
+
+/// Wasm 插件实例内部状态
+#[cfg(not(target_arch = "wasm32"))]
+pub struct WasmPluginState {
+    /// 日志输出缓冲
+    pub log_buffer: Vec<String>,
+    /// 待发送的工具调用请求
+    pub pending_calls: Vec<ToolCall>,
+    /// 已接收的工具调用结果
+    pub received_results: Vec<ToolResult>,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-impl WasmPluginInstance {
+impl WasmPlugin {
     /// 从 Wasm 字节码创建插件实例
-    pub fn new(manifest: PluginManifest, wasm_bytes: &[u8]) -> Result<Self> {
-        let config = wasmtime::Config::new();
-        let engine = wasmtime::Engine::new(&config).map_err(|e| PluginError::LoadFailed {
-            name: manifest.id.clone(),
-            reason: e.to_string(),
+    pub fn new(
+        manifest: PluginManifest,
+        wasm_bytes: &[u8],
+    ) -> Result<Self> {
+        use wasmtime::*;
+
+        // 创建 wasmtime 引擎（启用 WASM 组件模型）
+        let mut config = Config::new();
+        config.wasm_component_model(true);
+        // 启用燃料计量（限制无限循环）
+        config.consume_fuel(true);
+
+        let engine = Engine::new(&config).map_err(|e| PluginError::LoadFailed {
+            name: manifest.name.clone(),
+            reason: format!("Failed to create Wasm engine: {e}"),
         })?;
 
-        // 验证 Wasm 模块
-        wasmtime::Module::validate(&engine, wasm_bytes).map_err(|e| PluginError::LoadFailed {
-            name: manifest.id.clone(),
-            reason: format!("Invalid Wasm module: {}", e),
+        let module = Module::new(&engine, wasm_bytes).map_err(|e| PluginError::LoadFailed {
+            name: manifest.name.clone(),
+            reason: format!("Failed to compile Wasm module: {e}"),
         })?;
 
-        Ok(Self { manifest, engine })
-    }
-
-    /// 从文件加载并创建插件实例
-    pub fn from_file(manifest: PluginManifest, path: &str) -> Result<Self> {
-        let wasm_bytes = std::fs::read(path).map_err(|e| PluginError::LoadFailed {
-            name: manifest.id.clone(),
-            reason: format!("Failed to read Wasm file '{}': {}", path, e),
-        })?;
-        Self::new(manifest, &wasm_bytes)
-    }
-
-    /// 调用 Wasm 导出函数
-    pub fn call_function(&self, _func_name: &str, _args: &[u8]) -> Result<Vec<u8>> {
-        // TODO: 完整实现需要创建 Store 和 Instance
-        // 当前为占位实现
-        Err(PluginError::Communication(
-            "WasmPlugin::call_function not fully implemented yet".to_string()
-        ))
-    }
-}
-
-/// Wasm 插件描述符（平台无关）
-pub struct WasmPluginDescriptor {
-    pub manifest: PluginManifest,
-    pub wasm_path: std::path::PathBuf,
-}
-
-impl WasmPluginDescriptor {
-    pub fn new(manifest: PluginManifest, wasm_path: impl Into<std::path::PathBuf>) -> Self {
-        Self {
-            manifest,
-            wasm_path: wasm_path.into(),
-        }
-    }
-
-    /// 从清单目录加载描述符（自动查找 plugin.json 和 .wasm 文件）
-    pub fn from_dir(dir: &std::path::Path) -> Option<Self> {
-        let manifest_path = dir.join("plugin.json");
-        if !manifest_path.exists() {
-            return None;
-        }
-
-        let manifest_json = std::fs::read_to_string(&manifest_path).ok()?;
-        let manifest = PluginManifest::from_json(&manifest_json).ok()?;
-
-        let wasm_path = if let Some(entry) = &manifest.wasm_entry {
-            dir.join(entry)
-        } else {
-            dir.join(format!("{}.wasm", manifest.id.replace('.', "_")))
+        let state = WasmPluginState {
+            log_buffer: Vec::new(),
+            pending_calls: Vec::new(),
+            received_results: Vec::new(),
         };
 
-        Some(Self { manifest, wasm_path })
+        let mut store = Store::new(&engine, state);
+        // 设置初始燃料（限制计算量，防止插件占用过多 CPU）
+        store.set_fuel(u64::MAX).ok();
+
+        // 创建链接器并注册宿主函数
+        let mut linker = Linker::new(&engine);
+        Self::register_host_functions(&mut linker)?;
+
+        let instance = linker.instantiate(&mut store, &module).map_err(|e| {
+            PluginError::LoadFailed {
+                name: manifest.name.clone(),
+                reason: format!("Failed to instantiate Wasm module: {e}"),
+            }
+        })?;
+
+        Ok(Self { manifest, engine, store, instance })
+    }
+
+    /// 从文件路径加载 Wasm 插件
+    pub fn from_file(manifest: PluginManifest, path: &std::path::Path) -> Result<Self> {
+        let bytes = std::fs::read(path).map_err(|e| PluginError::LoadFailed {
+            name: manifest.name.clone(),
+            reason: format!("Failed to read Wasm file '{}': {e}", path.display()),
+        })?;
+        Self::new(manifest, &bytes)
+    }
+
+    /// 调用插件的初始化函数（_start 或 ummerse_init）
+    pub fn initialize(&mut self) -> Result<()> {
+        // 尝试调用 ummerse_init，不存在则跳过
+        if let Ok(init_fn) = self.instance.get_typed_func::<(), ()>(&mut self.store, "ummerse_init") {
+            init_fn.call(&mut self.store, ()).map_err(|e| PluginError::LoadFailed {
+                name: self.manifest.name.clone(),
+                reason: format!("ummerse_init failed: {e}"),
+            })?;
+            tracing::info!(plugin = %self.manifest.name, "Plugin initialized via ummerse_init");
+        } else {
+            tracing::debug!(plugin = %self.manifest.name, "No ummerse_init found, skipping");
+        }
+        Ok(())
+    }
+
+    /// 向插件传递工具调用结果（通过共享内存）
+    pub fn deliver_result(&mut self, result: ToolResult) {
+        self.store.data_mut().received_results.push(result);
+    }
+
+    /// 获取插件发起的待处理工具调用
+    pub fn take_pending_calls(&mut self) -> Vec<ToolCall> {
+        std::mem::take(&mut self.store.data_mut().pending_calls)
+    }
+
+    /// 获取插件日志输出
+    pub fn take_logs(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.store.data_mut().log_buffer)
+    }
+
+    /// 注册宿主函数（提供给 Wasm 插件调用的 API）
+    fn register_host_functions(linker: &mut wasmtime::Linker<WasmPluginState>) -> Result<()> {
+        use wasmtime::*;
+
+        // ummerse_log(level: i32, msg_ptr: i32, msg_len: i32)
+        linker.func_wrap(
+            "ummerse",
+            "log",
+            |mut caller: Caller<'_, WasmPluginState>, level: i32, ptr: i32, len: i32| {
+                if let Some(memory) = caller.get_export("memory").and_then(|e| e.into_memory()) {
+                    let mut buf = vec![0u8; len as usize];
+                    if memory.read(&caller, ptr as usize, &mut buf).is_ok() {
+                        if let Ok(msg) = std::str::from_utf8(&buf) {
+                            let level_str = match level {
+                                0 => "ERROR",
+                                1 => "WARN",
+                                2 => "INFO",
+                                3 => "DEBUG",
+                                _ => "TRACE",
+                            };
+                            caller.data_mut().log_buffer.push(format!("[{level_str}] {msg}"));
+                        }
+                    }
+                }
+            },
+        )
+        .map_err(|e| PluginError::LoadFailed {
+            name: "host".to_string(),
+            reason: format!("Failed to register host function 'log': {e}"),
+        })?;
+
+        // ummerse_tool_call(name_ptr: i32, name_len: i32, params_ptr: i32, params_len: i32)
+        linker.func_wrap(
+            "ummerse",
+            "tool_call",
+            |mut caller: Caller<'_, WasmPluginState>,
+             name_ptr: i32, name_len: i32,
+             params_ptr: i32, params_len: i32| {
+                let result: i32 = if let Some(memory) =
+                    caller.get_export("memory").and_then(|e| e.into_memory())
+                {
+                    let mut name_buf = vec![0u8; name_len as usize];
+                    let mut params_buf = vec![0u8; params_len as usize];
+                    if memory.read(&caller, name_ptr as usize, &mut name_buf).is_ok()
+                        && memory.read(&caller, params_ptr as usize, &mut params_buf).is_ok()
+                    {
+                        if let (Ok(name), Ok(params_str)) = (
+                            std::str::from_utf8(&name_buf),
+                            std::str::from_utf8(&params_buf),
+                        ) {
+                            if let Ok(params) = serde_json::from_str::<serde_json::Value>(params_str) {
+                                let call = ToolCall::new(name, params);
+                                caller.data_mut().pending_calls.push(call);
+                                0 // success
+                            } else {
+                                -1 // JSON parse error
+                            }
+                        } else {
+                            -2 // UTF-8 error
+                        }
+                    } else {
+                        -3 // memory read error
+                    }
+                } else {
+                    -4 // no memory export
+                };
+                result
+            },
+        )
+        .map_err(|e| PluginError::LoadFailed {
+            name: "host".to_string(),
+            reason: format!("Failed to register host function 'tool_call': {e}"),
+        })?;
+
+        Ok(())
     }
 }
 
-/// 扫描目录中的所有 Wasm 插件
-pub fn scan_plugins(dir: &std::path::Path) -> Vec<WasmPluginDescriptor> {
-    let mut plugins = Vec::new();
+// ── 非桌面平台占位实现 ────────────────────────────────────────────────────────
 
-    if let Ok(entries) = std::fs::read_dir(dir) {
-        for entry in entries.filter_map(|e| e.ok()) {
-            let path = entry.path();
-            if path.is_dir() {
-                if let Some(descriptor) = WasmPluginDescriptor::from_dir(&path) {
-                    plugins.push(descriptor);
-                }
-            }
-        }
+/// Wasm 目标平台下的占位结构（Wasm 中不运行 wasmtime）
+#[cfg(target_arch = "wasm32")]
+pub struct WasmPlugin {
+    pub manifest: PluginManifest,
+}
+
+#[cfg(target_arch = "wasm32")]
+impl WasmPlugin {
+    pub fn new(manifest: PluginManifest, _wasm_bytes: &[u8]) -> Result<Self> {
+        Err(PluginError::LoadFailed {
+            name: manifest.name.clone(),
+            reason: "WasmPlugin is not supported on the wasm32 target".to_string(),
+        })
     }
 
-    plugins
+    pub fn initialize(&mut self) -> Result<()> {
+        Err(PluginError::LoadFailed {
+            name: self.manifest.name.clone(),
+            reason: "WasmPlugin is not supported on the wasm32 target".to_string(),
+        })
+    }
+
+    pub fn take_pending_calls(&mut self) -> Vec<ToolCall> {
+        Vec::new()
+    }
+
+    pub fn take_logs(&mut self) -> Vec<String> {
+        Vec::new()
+    }
+
+    pub fn deliver_result(&mut self, _result: ToolResult) {}
 }

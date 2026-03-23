@@ -1,125 +1,197 @@
-//! 资源系统 - 引擎全局/局部资源管理
+//! 资源系统 - 全局共享数据（类似 Bevy Resource 概念）
+//!
+//! 资源是全局单例数据，通过类型 ID 索引，
+//! 生命周期与引擎绑定。
 
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
-    ops::{Deref, DerefMut},
-    sync::Arc,
 };
-use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
-/// 资源 trait - 所有可注册的全局资源需实现此 trait
-pub trait Resource: Any + Send + Sync + 'static {}
+// ── Resource trait ────────────────────────────────────────────────────────────
 
-/// 自动为满足约束的类型实现 Resource
-impl<T: Any + Send + Sync + 'static> Resource for T {}
+/// 引擎资源 trait
+///
+/// 任意 `Send + Sync + 'static` 类型均可作为资源。
+pub trait Resource: Send + Sync + 'static {}
 
-/// 类型擦除的资源容器
-type AnyResource = Arc<RwLock<Box<dyn Any + Send + Sync>>>;
+/// 为所有满足约束的类型自动实现
+impl<T: Send + Sync + 'static> Resource for T {}
 
-/// 资源注册表
+// ── 资源引用包装 ──────────────────────────────────────────────────────────────
+
+/// 不可变资源引用（借用检查包装）
+pub struct Res<'a, T: Resource> {
+    value: &'a T,
+}
+
+impl<'a, T: Resource> Res<'a, T> {
+    pub(crate) fn new(value: &'a T) -> Self {
+        Self { value }
+    }
+}
+
+impl<'a, T: Resource> std::ops::Deref for Res<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.value
+    }
+}
+
+/// 可变资源引用（借用检查包装）
+pub struct ResMut<'a, T: Resource> {
+    value: &'a mut T,
+}
+
+impl<'a, T: Resource> ResMut<'a, T> {
+    pub(crate) fn new(value: &'a mut T) -> Self {
+        Self { value }
+    }
+}
+
+impl<'a, T: Resource> std::ops::Deref for ResMut<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.value
+    }
+}
+
+impl<'a, T: Resource> std::ops::DerefMut for ResMut<'a, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.value
+    }
+}
+
+// ── 资源注册表 ────────────────────────────────────────────────────────────────
+
+/// 全局资源注册表 - 按类型索引的类型擦除存储
 #[derive(Default)]
 pub struct ResourceRegistry {
-    resources: HashMap<TypeId, AnyResource>,
+    resources: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
 }
 
 impl ResourceRegistry {
+    /// 创建空注册表
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// 注册资源（若已存在则覆盖）
-    pub fn insert<R: Resource>(&mut self, resource: R) {
-        let type_id = TypeId::of::<R>();
-        self.resources.insert(
-            type_id,
-            Arc::new(RwLock::new(Box::new(resource))),
-        );
+    /// 插入资源（若已存在则覆盖）
+    pub fn insert<T: Resource>(&mut self, resource: T) {
+        self.resources.insert(TypeId::of::<T>(), Box::new(resource));
     }
 
-    /// 获取资源的不可变访问
-    pub fn get<R: Resource>(&self) -> Option<Res<R>> {
-        let type_id = TypeId::of::<R>();
-        self.resources.get(&type_id).map(|arc| Res {
-            guard: arc.clone(),
-            _phantom: std::marker::PhantomData,
-        })
+    /// 获取资源不可变引用
+    pub fn get<T: Resource>(&self) -> Option<&T> {
+        self.resources
+            .get(&TypeId::of::<T>())
+            .and_then(|r| r.downcast_ref::<T>())
     }
 
-    /// 获取资源的可变访问
-    pub fn get_mut<R: Resource>(&self) -> Option<ResMut<R>> {
-        let type_id = TypeId::of::<R>();
-        self.resources.get(&type_id).map(|arc| ResMut {
-            guard: arc.clone(),
-            _phantom: std::marker::PhantomData,
-        })
+    /// 获取资源可变引用
+    pub fn get_mut<T: Resource>(&mut self) -> Option<&mut T> {
+        self.resources
+            .get_mut(&TypeId::of::<T>())
+            .and_then(|r| r.downcast_mut::<T>())
     }
 
-    /// 移除资源
-    pub fn remove<R: Resource>(&mut self) -> bool {
-        self.resources.remove(&TypeId::of::<R>()).is_some()
+    /// 移除资源，返回所有权
+    pub fn remove<T: Resource>(&mut self) -> Option<T> {
+        self.resources
+            .remove(&TypeId::of::<T>())
+            .and_then(|r| r.downcast::<T>().ok())
+            .map(|b| *b)
     }
 
-    /// 资源是否存在
-    pub fn contains<R: Resource>(&self) -> bool {
-        self.resources.contains_key(&TypeId::of::<R>())
+    /// 是否包含该类型资源
+    pub fn contains<T: Resource>(&self) -> bool {
+        self.resources.contains_key(&TypeId::of::<T>())
     }
-}
 
-// ── 智能指针封装 ──────────────────────────────────────────────────────────────
-
-/// 资源不可变引用
-pub struct Res<R: Resource> {
-    guard: AnyResource,
-    _phantom: std::marker::PhantomData<R>,
-}
-
-impl<R: Resource> Res<R> {
-    pub fn read(&self) -> ResReadGuard<'_, R> {
-        let guard = self.guard.read();
-        ResReadGuard { guard, _phantom: std::marker::PhantomData }
+    /// 当前资源数量
+    pub fn len(&self) -> usize {
+        self.resources.len()
     }
-}
 
-pub struct ResReadGuard<'a, R: Resource> {
-    guard: RwLockReadGuard<'a, Box<dyn Any + Send + Sync>>,
-    _phantom: std::marker::PhantomData<R>,
-}
-
-impl<'a, R: Resource> Deref for ResReadGuard<'a, R> {
-    type Target = R;
-    fn deref(&self) -> &Self::Target {
-        self.guard.downcast_ref::<R>().expect("Resource type mismatch")
+    /// 是否为空
+    pub fn is_empty(&self) -> bool {
+        self.resources.is_empty()
     }
-}
 
-/// 资源可变引用
-pub struct ResMut<R: Resource> {
-    guard: AnyResource,
-    _phantom: std::marker::PhantomData<R>,
-}
+    /// 获取资源包装引用（Res<T>）
+    ///
+    /// # Panics
+    /// 若资源不存在则 panic。
+    pub fn res<T: Resource>(&self) -> Res<'_, T> {
+        Res::new(
+            self.get::<T>()
+                .unwrap_or_else(|| panic!("Resource '{}' not found", std::any::type_name::<T>())),
+        )
+    }
 
-impl<R: Resource> ResMut<R> {
-    pub fn write(&self) -> ResMutGuard<'_, R> {
-        let guard = self.guard.write();
-        ResMutGuard { guard, _phantom: std::marker::PhantomData }
+    /// 获取资源可变包装引用（ResMut<T>）
+    ///
+    /// # Panics
+    /// 若资源不存在则 panic。
+    pub fn res_mut<T: Resource>(&mut self) -> ResMut<'_, T> {
+        ResMut::new(
+            self.get_mut::<T>()
+                .unwrap_or_else(|| panic!("Resource '{}' not found", std::any::type_name::<T>())),
+        )
     }
 }
 
-pub struct ResMutGuard<'a, R: Resource> {
-    guard: RwLockWriteGuard<'a, Box<dyn Any + Send + Sync>>,
-    _phantom: std::marker::PhantomData<R>,
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-impl<'a, R: Resource> Deref for ResMutGuard<'a, R> {
-    type Target = R;
-    fn deref(&self) -> &Self::Target {
-        self.guard.downcast_ref::<R>().expect("Resource type mismatch")
+    struct MyCounter {
+        value: u32,
     }
-}
 
-impl<'a, R: Resource> DerefMut for ResMutGuard<'a, R> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.guard.downcast_mut::<R>().expect("Resource type mismatch")
+    struct GameSettings {
+        volume: f32,
+    }
+
+    #[test]
+    fn test_insert_and_get() {
+        let mut reg = ResourceRegistry::new();
+        reg.insert(MyCounter { value: 42 });
+        assert!(reg.contains::<MyCounter>());
+        assert_eq!(reg.get::<MyCounter>().unwrap().value, 42);
+    }
+
+    #[test]
+    fn test_get_mut() {
+        let mut reg = ResourceRegistry::new();
+        reg.insert(MyCounter { value: 0 });
+        reg.get_mut::<MyCounter>().unwrap().value = 100;
+        assert_eq!(reg.get::<MyCounter>().unwrap().value, 100);
+    }
+
+    #[test]
+    fn test_remove() {
+        let mut reg = ResourceRegistry::new();
+        reg.insert(GameSettings { volume: 0.8 });
+        let removed = reg.remove::<GameSettings>().unwrap();
+        assert!((removed.volume - 0.8).abs() < f32::EPSILON);
+        assert!(!reg.contains::<GameSettings>());
+    }
+
+    #[test]
+    fn test_multiple_types() {
+        let mut reg = ResourceRegistry::new();
+        reg.insert(MyCounter { value: 5 });
+        reg.insert(GameSettings { volume: 1.0 });
+        assert_eq!(reg.len(), 2);
+    }
+
+    #[test]
+    #[should_panic(expected = "Resource")]
+    fn test_res_panics_on_missing() {
+        let reg = ResourceRegistry::new();
+        let _r = reg.res::<MyCounter>();
     }
 }

@@ -3,10 +3,7 @@
 //! 类似 Cline 的工具调用系统，AI 助手或插件可调用这些工具
 //! 来操作引擎和编辑器。
 
-use crate::{
-    protocol::{ToolCall, ToolResult, ToolResultContent},
-    PluginError, Result,
-};
+use crate::protocol::{ToolCall, ToolResult, ToolResultContent};
 use async_trait::async_trait;
 use serde_json::Value;
 use std::collections::HashMap;

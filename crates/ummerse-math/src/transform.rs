@@ -94,11 +94,11 @@ impl Transform2d {
         Vec2::new(self.rotation.cos(), self.rotation.sin())
     }
 
-    /// 向右方向
+    /// 向右方向（旋转 +90°）
     #[inline]
     pub fn right(&self) -> Vec2 {
-        Vec2::new(self.rotation.cos() + std::f32::consts::FRAC_PI_2,
-                  self.rotation.sin() + std::f32::consts::FRAC_PI_2)
+        let angle = self.rotation + std::f32::consts::FRAC_PI_2;
+        Vec2::new(angle.cos(), angle.sin())
     }
 }
 

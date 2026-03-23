@@ -50,7 +50,7 @@ impl SpatialAudioSource {
     }
 
     /// 计算立体声声像（-1.0 = 全左，1.0 = 全右）
-    pub fn panning_at(&self, listener_pos: Vec3, listener_forward: Vec3, listener_right: Vec3) -> f32 {
+    pub fn panning_at(&self, listener_pos: Vec3, _listener_forward: Vec3, listener_right: Vec3) -> f32 {
         let to_source = (self.position - listener_pos).normalize_or_zero();
         // 投影到监听者右方向
         let pan = to_source.dot(listener_right).clamp(-1.0, 1.0);

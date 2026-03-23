@@ -4,9 +4,12 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "Math utilities for the Ummerse game engine"
+description = "Math primitives (vec, mat, quat, transform) for Ummerse"
 
 [dependencies]
 glam.workspace = true
-bytemuck.workspace = true
 serde.workspace = true
+bytemuck.workspace = true
+
+[features]
+default = []

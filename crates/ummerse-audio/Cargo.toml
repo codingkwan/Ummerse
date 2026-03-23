@@ -4,15 +4,27 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "Audio system for Ummerse game engine"
+description = "Audio engine for Ummerse"
 
 [dependencies]
 ummerse-core.workspace = true
-ummerse-asset.workspace = true
-bevy = { workspace = true }
+ummerse-math.workspace = true
+
+# Math
 glam.workspace = true
-uuid.workspace = true
+
+# Serialization
 serde.workspace = true
+
+# Error handling
 anyhow.workspace = true
 thiserror.workspace = true
+
+# Logging
 tracing.workspace = true
+
+# Utilities
+uuid.workspace = true
+
+[features]
+default = []

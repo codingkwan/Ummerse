@@ -2,7 +2,7 @@
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use tracing::info;
 
 /// 项目配置（存储在 project.toml 中）

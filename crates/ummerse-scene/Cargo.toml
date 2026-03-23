@@ -10,14 +10,26 @@ description = "Scene tree, node system, and scene serialization for Ummerse"
 ummerse-core.workspace = true
 ummerse-math.workspace = true
 ummerse-asset.workspace = true
-bevy = { workspace = true }
+
+# ECS
+bevy_ecs.workspace = true
+
+# Math
 glam.workspace = true
+
+# Serialization
 serde.workspace = true
 serde_json.workspace = true
 ron.workspace = true
+
+# Error handling
 anyhow.workspace = true
 thiserror.workspace = true
+
+# Logging
 tracing.workspace = true
+
+# Utilities
 uuid.workspace = true
 indexmap.workspace = true
 smallvec.workspace = true

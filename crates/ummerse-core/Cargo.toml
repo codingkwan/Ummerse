@@ -8,13 +8,26 @@ description = "Core ECS, event system, and engine primitives for Ummerse"
 
 [dependencies]
 ummerse-math.workspace = true
+
+# ECS（仅使用轻量级 bevy_ecs，不引入完整 Bevy）
+bevy_ecs.workspace = true
+bevy_app.workspace = true
+bevy_reflect.workspace = true
+
+# Serialization
 serde.workspace = true
 serde_json.workspace = true
 toml.workspace = true
 ron.workspace = true
+
+# Error handling
 anyhow.workspace = true
 thiserror.workspace = true
+
+# Logging
 tracing.workspace = true
+
+# Utilities
 uuid.workspace = true
 dashmap.workspace = true
 parking_lot.workspace = true
@@ -23,8 +36,6 @@ bitflags.workspace = true
 smallvec.workspace = true
 indexmap.workspace = true
 ahash.workspace = true
-bevy = { workspace = true }
 
 [features]
 default = []
-reflect = []

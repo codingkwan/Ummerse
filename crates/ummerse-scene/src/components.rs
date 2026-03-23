@@ -1,12 +1,12 @@
-//! Bevy ECS 组件定义 - 场景节点对应的 ECS 组件
+//! ECS 组件定义 - 场景节点对应的 ECS 组件
+//!
+//! 使用 bevy_ecs 而非完整 bevy，避免引入不必要的依赖。
 
-use bevy::prelude::*;
-use ummerse_core::node::{NodeId, NodeType};
-use ummerse_math::{
-    color::Color,
-    transform::{Transform2d, Transform3d},
-};
+use bevy_ecs::prelude::*;
+use glam::Vec2;
 use serde::{Deserialize, Serialize};
+use ummerse_core::node::{NodeId, NodeType};
+use ummerse_math::{color::Color, rect::Rect2, transform::{Transform2d, Transform3d}};
 
 /// 节点标识组件
 #[derive(Component, Debug, Clone)]
@@ -48,7 +48,7 @@ pub struct Sprite2dComponent {
     pub flip_x: bool,
     pub flip_y: bool,
     /// UV 裁切矩形（None 表示使用整个纹理）
-    pub region: Option<ummerse_math::rect::Rect2>,
+    pub region: Option<Rect2>,
 }
 
 impl Default for Sprite2dComponent {
@@ -88,8 +88,19 @@ pub struct MeshInstance3dComponent {
     pub receive_shadow: bool,
 }
 
+impl Default for MeshInstance3dComponent {
+    fn default() -> Self {
+        Self {
+            mesh_path: String::new(),
+            material_path: String::new(),
+            cast_shadow: true,
+            receive_shadow: true,
+        }
+    }
+}
+
 /// 刚体类型
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RigidBodyType {
     Dynamic,
     Static,
@@ -102,7 +113,7 @@ pub struct RigidBody2dComponent {
     pub body_type: RigidBodyType,
     pub mass: f32,
     pub gravity_scale: f32,
-    pub linear_velocity: glam::Vec2,
+    pub linear_velocity: Vec2,
     pub angular_velocity: f32,
 }
 
@@ -112,7 +123,7 @@ impl Default for RigidBody2dComponent {
             body_type: RigidBodyType::Dynamic,
             mass: 1.0,
             gravity_scale: 1.0,
-            linear_velocity: glam::Vec2::ZERO,
+            linear_velocity: Vec2::ZERO,
             angular_velocity: 0.0,
         }
     }
@@ -147,4 +158,13 @@ impl Default for AudioPlayerComponent {
 pub struct ScriptComponent {
     pub script_path: String,
     pub enabled: bool,
+}
+
+impl Default for ScriptComponent {
+    fn default() -> Self {
+        Self {
+            script_path: String::new(),
+            enabled: true,
+        }
+    }
 }

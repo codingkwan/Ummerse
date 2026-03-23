@@ -153,7 +153,7 @@ impl SceneTree {
 
         // 更新路径缓存
         if let Some(old_path) = old_path {
-            self.path_cache.remove(&old_path);
+            self.path_cache.shift_remove(&old_path);
             let parent_id = self.nodes.get(&id).and_then(|n| n.parent);
             let new_path = self.compute_path(parent_id, &new_name);
             self.path_cache.insert(new_path, id);

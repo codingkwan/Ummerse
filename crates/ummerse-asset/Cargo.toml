@@ -4,26 +4,49 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "Asset management, loading, and hot-reloading for Ummerse"
+description = "Asset management, loading, and hot-reload for Ummerse"
 
 [dependencies]
 ummerse-core.workspace = true
 ummerse-math.workspace = true
-bytemuck.workspace = true
-bevy = { workspace = true }
+
+# Serialization
 serde.workspace = true
 serde_json.workspace = true
+ron.workspace = true
 toml.workspace = true
-anyhow.workspace = true
-thiserror.workspace = true
-tracing.workspace = true
-uuid.workspace = true
-dashmap.workspace = true
-parking_lot.workspace = true
-walkdir.workspace = true
-image.workspace = true
+
+# Async
 tokio.workspace = true
 async-trait.workspace = true
 
+# Error handling
+anyhow.workspace = true
+thiserror.workspace = true
+
+# Logging
+tracing.workspace = true
+
+# Utilities
+uuid.workspace = true
+dashmap.workspace = true
+parking_lot.workspace = true
+once_cell.workspace = true
+ahash.workspace = true
+
+# File system
+walkdir.workspace = true
+
+# Math & GPU
+bytemuck.workspace = true
+glam.workspace = true
+
+# Image
+image.workspace = true
+
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 notify.workspace = true
+
+[features]
+default = []
+hot-reload = []
