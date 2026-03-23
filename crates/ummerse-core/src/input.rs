@@ -1,129 +1,44 @@
-//! 输入系统 - 键盘、鼠标、游戏手柄输入处理
+//! 输入系统 - 键盘、鼠标、手柄输入管理
 //!
-//! 提供帧级的输入状态查询（按下/保持/释放），
-//! 参考 Godot 4 的 Input singleton 设计。
+//! 参考 Godot Input 单例设计，提供轮询和事件两种输入获取方式。
+
+use std::collections::{HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
 
 // ── 键码 ──────────────────────────────────────────────────────────────────────
 
-/// 键盘按键码
+/// 键盘键码（参考 Godot Key 枚举）
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum KeyCode {
-    // 字母
-    A,
-    B,
-    C,
-    D,
-    E,
-    F,
-    G,
-    H,
-    I,
-    J,
-    K,
-    L,
-    M,
-    N,
-    O,
-    P,
-    Q,
-    R,
-    S,
-    T,
-    U,
-    V,
-    W,
-    X,
-    Y,
-    Z,
-    // 数字
-    Key0,
-    Key1,
-    Key2,
-    Key3,
-    Key4,
-    Key5,
-    Key6,
-    Key7,
-    Key8,
-    Key9,
+    // 字母键
+    A, B, C, D, E, F, G, H, I, J, K, L, M,
+    N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
+    // 数字键（键盘行）
+    Key0, Key1, Key2, Key3, Key4, Key5, Key6, Key7, Key8, Key9,
     // 功能键
-    F1,
-    F2,
-    F3,
-    F4,
-    F5,
-    F6,
-    F7,
-    F8,
-    F9,
-    F10,
-    F11,
-    F12,
-    // 控制键
-    Escape,
-    Enter,
-    Space,
-    Tab,
-    Backspace,
-    Delete,
-    Insert,
-    Home,
-    End,
-    PageUp,
-    PageDown,
+    F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12,
+    // 特殊键
+    Space, Enter, Escape, Tab, Backspace, Delete, Insert,
+    Home, End, PageUp, PageDown,
     // 方向键
-    Left,
-    Right,
-    Up,
-    Down,
+    Left, Right, Up, Down,
     // 修饰键
-    LShift,
-    RShift,
-    LCtrl,
-    RCtrl,
-    LAlt,
-    RAlt,
-    LMeta,
-    RMeta,
-    // 小键盘
-    Num0,
-    Num1,
-    Num2,
-    Num3,
-    Num4,
-    Num5,
-    Num6,
-    Num7,
-    Num8,
-    Num9,
-    NumAdd,
-    NumSub,
-    NumMul,
-    NumDiv,
-    NumEnter,
-    NumDot,
+    LShift, RShift, LCtrl, RCtrl, LAlt, RAlt, LSuper, RSuper,
+    // 数字小键盘
+    Numpad0, Numpad1, Numpad2, Numpad3, Numpad4,
+    Numpad5, Numpad6, Numpad7, Numpad8, Numpad9,
+    NumpadAdd, NumpadSubtract, NumpadMultiply, NumpadDivide,
+    NumpadDecimal, NumpadEnter,
     // 其他
-    Semicolon,
-    Comma,
-    Period,
-    Slash,
-    Backslash,
-    LeftBracket,
-    RightBracket,
-    Quote,
-    Backtick,
-    Minus,
-    Equals,
-    CapsLock,
-    NumLock,
-    ScrollLock,
-    PrintScreen,
-    Pause,
+    Slash, Backslash, Semicolon, Quote, Comma, Period,
+    LeftBracket, RightBracket, Grave, Minus, Equal,
+    CapsLock, NumLock, ScrollLock, PrintScreen, Pause,
+    /// 未知键码
     Unknown(u32),
 }
+
+// ── 鼠标按键 ──────────────────────────────────────────────────────────────────
 
 /// 鼠标按键
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -131,347 +46,281 @@ pub enum MouseButton {
     Left,
     Right,
     Middle,
-    X1,
-    X2,
-    Other(u8),
+    /// 侧键（前进/后退）
+    Button4,
+    Button5,
 }
 
-/// 游戏手柄按键
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum GamepadButton {
-    South, // A / Cross
-    East,  // B / Circle
-    West,  // X / Square
-    North, // Y / Triangle
-    LBumper,
-    RBumper,
-    LTrigger,
-    RTrigger,
-    Select,
-    Start,
-    Guide,
-    LStick,
-    RStick,
-    DPadUp,
-    DPadDown,
-    DPadLeft,
-    DPadRight,
-}
+// ── 输入动作 ──────────────────────────────────────────────────────────────────
 
-/// 游戏手柄轴
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum GamepadAxis {
-    LeftX,
-    LeftY,
-    RightX,
-    RightY,
-    LeftTrigger,
-    RightTrigger,
-}
-
-// ── 输入动作映射 ──────────────────────────────────────────────────────────────
-
-/// 输入绑定（可以是键盘键、鼠标键或手柄键）
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum InputBinding {
-    Key(KeyCode),
-    Mouse(MouseButton),
-    Gamepad { id: u8, button: GamepadButton },
-}
-
-/// 输入动作（类似 Godot 的 Action）
-#[derive(Debug, Clone)]
-pub struct InputAction {
-    pub name: String,
-    pub bindings: Vec<InputBinding>,
-    pub deadzone: f32,
-}
+/// 输入动作（抽象输入映射）
+///
+/// 类似 Godot 的 InputAction，将具体按键映射到逻辑动作。
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct InputAction(String);
 
 impl InputAction {
     pub fn new(name: impl Into<String>) -> Self {
-        Self {
-            name: name.into(),
-            bindings: Vec::new(),
-            deadzone: 0.2,
-        }
+        Self(name.into())
     }
 
-    pub fn with_key(mut self, key: KeyCode) -> Self {
-        self.bindings.push(InputBinding::Key(key));
-        self
-    }
-
-    pub fn with_mouse(mut self, button: MouseButton) -> Self {
-        self.bindings.push(InputBinding::Mouse(button));
-        self
+    pub fn as_str(&self) -> &str {
+        &self.0
     }
 }
 
-// ── 输入状态 ──────────────────────────────────────────────────────────────────
-
-/// 每帧输入状态快照
-#[derive(Debug, Default, Clone)]
-pub struct InputState {
-    // 键盘
-    keys_pressed: HashSet<KeyCode>,  // 本帧刚按下
-    keys_held: HashSet<KeyCode>,     // 本帧保持按下
-    keys_released: HashSet<KeyCode>, // 本帧刚释放
-
-    // 鼠标
-    mouse_pressed: HashSet<MouseButton>,
-    mouse_held: HashSet<MouseButton>,
-    mouse_released: HashSet<MouseButton>,
-    /// 当前鼠标位置（屏幕像素坐标）
-    pub mouse_position: (f32, f32),
-    /// 本帧鼠标移动量
-    pub mouse_delta: (f32, f32),
-    /// 鼠标滚轮
-    pub scroll_delta: (f32, f32),
-
-    // 手柄轴
-    gamepad_axes: HashMap<(u8, GamepadAxis), f32>,
+impl From<&str> for InputAction {
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
 }
 
-impl InputState {
-    pub fn new() -> Self {
-        Self::default()
+impl std::fmt::Display for InputAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
+}
 
-    // ── 键盘查询 ───────────────────────────────────────────────────────────
+// ── 按键状态 ──────────────────────────────────────────────────────────────────
 
-    /// 键是否刚被按下（仅本帧第一帧返回 true）
-    #[inline]
-    pub fn is_key_just_pressed(&self, key: KeyCode) -> bool {
-        self.keys_pressed.contains(&key)
-    }
-
-    /// 键是否持续按下
-    #[inline]
-    pub fn is_key_pressed(&self, key: KeyCode) -> bool {
-        self.keys_held.contains(&key)
-    }
-
-    /// 键是否刚被释放
-    #[inline]
-    pub fn is_key_just_released(&self, key: KeyCode) -> bool {
-        self.keys_released.contains(&key)
-    }
-
-    // ── 鼠标查询 ───────────────────────────────────────────────────────────
-
-    #[inline]
-    pub fn is_mouse_just_pressed(&self, button: MouseButton) -> bool {
-        self.mouse_pressed.contains(&button)
-    }
-
-    #[inline]
-    pub fn is_mouse_pressed(&self, button: MouseButton) -> bool {
-        self.mouse_held.contains(&button)
-    }
-
-    #[inline]
-    pub fn is_mouse_just_released(&self, button: MouseButton) -> bool {
-        self.mouse_released.contains(&button)
-    }
-
-    // ── 手柄查询 ───────────────────────────────────────────────────────────
-
-    /// 获取手柄轴值（-1.0 ~ 1.0）
-    pub fn gamepad_axis(&self, id: u8, axis: GamepadAxis) -> f32 {
-        *self.gamepad_axes.get(&(id, axis)).unwrap_or(&0.0)
-    }
+/// 按键/按钮状态
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ButtonState {
+    /// 当前帧按下（刚按下）
+    JustPressed,
+    /// 持续按住
+    Held,
+    /// 当前帧释放（刚释放）
+    JustReleased,
+    /// 未按下
+    Released,
 }
 
 // ── 输入管理器 ────────────────────────────────────────────────────────────────
 
-/// 输入管理器 - 集中处理所有输入事件
+/// 输入管理器 - 管理键盘、鼠标输入状态
+///
+/// 每帧由平台层更新：
+/// 1. 收集原生输入事件
+/// 2. 更新状态机（JustPressed → Held → JustReleased → Released）
+/// 3. 分发到输入动作映射
 pub struct InputManager {
-    /// 当前帧输入状态
-    pub state: InputState,
-    /// 动作映射表
-    actions: HashMap<String, InputAction>,
-    /// 上一帧按住的键（用于计算 just_pressed/released）
-    prev_keys: HashSet<KeyCode>,
-    prev_mouse: HashSet<MouseButton>,
+    /// 键盘状态
+    keyboard: HashMap<KeyCode, ButtonState>,
+    /// 鼠标按键状态
+    mouse_buttons: HashMap<MouseButton, ButtonState>,
+    /// 鼠标光标位置（像素）
+    mouse_position: glam::Vec2,
+    /// 本帧鼠标移动量
+    mouse_delta: glam::Vec2,
+    /// 鼠标滚轮增量（Y 轴）
+    scroll_delta: f32,
+    /// 动作映射（动作名 → 触发的键码列表）
+    action_map: HashMap<InputAction, Vec<KeyCode>>,
+    /// 动作状态（本帧缓存）
+    action_states: HashMap<InputAction, ButtonState>,
 }
 
 impl InputManager {
+    /// 创建输入管理器
     pub fn new() -> Self {
-        let mut manager = Self {
-            state: InputState::new(),
-            actions: HashMap::new(),
-            prev_keys: HashSet::new(),
-            prev_mouse: HashSet::new(),
-        };
-        manager.register_default_actions();
-        manager
-    }
-
-    /// 注册默认输入动作
-    fn register_default_actions(&mut self) {
-        let actions = vec![
-            InputAction::new("ui_accept")
-                .with_key(KeyCode::Enter)
-                .with_key(KeyCode::Space),
-            InputAction::new("ui_cancel").with_key(KeyCode::Escape),
-            InputAction::new("ui_left").with_key(KeyCode::Left),
-            InputAction::new("ui_right").with_key(KeyCode::Right),
-            InputAction::new("ui_up").with_key(KeyCode::Up),
-            InputAction::new("ui_down").with_key(KeyCode::Down),
-            InputAction::new("move_forward")
-                .with_key(KeyCode::W)
-                .with_key(KeyCode::Up),
-            InputAction::new("move_backward")
-                .with_key(KeyCode::S)
-                .with_key(KeyCode::Down),
-            InputAction::new("move_left")
-                .with_key(KeyCode::A)
-                .with_key(KeyCode::Left),
-            InputAction::new("move_right")
-                .with_key(KeyCode::D)
-                .with_key(KeyCode::Right),
-            InputAction::new("jump").with_key(KeyCode::Space),
-            InputAction::new("run").with_key(KeyCode::LShift),
-        ];
-
-        for action in actions {
-            self.actions.insert(action.name.clone(), action);
+        Self {
+            keyboard: HashMap::new(),
+            mouse_buttons: HashMap::new(),
+            mouse_position: glam::Vec2::ZERO,
+            mouse_delta: glam::Vec2::ZERO,
+            scroll_delta: 0.0,
+            action_map: HashMap::new(),
+            action_states: HashMap::new(),
         }
     }
 
-    /// 注册自定义输入动作
-    pub fn register_action(&mut self, action: InputAction) {
-        self.actions.insert(action.name.clone(), action);
+    // ── 键盘查询 ──────────────────────────────────────────────────────────
+
+    /// 键是否被按住（含 JustPressed）
+    pub fn is_key_pressed(&self, key: KeyCode) -> bool {
+        matches!(
+            self.keyboard.get(&key),
+            Some(ButtonState::JustPressed | ButtonState::Held)
+        )
     }
 
-    /// 每帧开始时调用，重置单帧状态
-    pub fn begin_frame(&mut self) {
-        self.state.keys_pressed.clear();
-        self.state.keys_released.clear();
-        self.state.mouse_pressed.clear();
-        self.state.mouse_released.clear();
-        self.state.mouse_delta = (0.0, 0.0);
-        self.state.scroll_delta = (0.0, 0.0);
+    /// 键是否在本帧刚刚按下
+    pub fn is_key_just_pressed(&self, key: KeyCode) -> bool {
+        matches!(self.keyboard.get(&key), Some(ButtonState::JustPressed))
     }
 
-    /// 处理键盘按下事件
-    pub fn on_key_down(&mut self, key: KeyCode) {
-        if !self.prev_keys.contains(&key) {
-            self.state.keys_pressed.insert(key);
-        }
-        self.state.keys_held.insert(key);
-        self.prev_keys.insert(key);
+    /// 键是否在本帧刚刚释放
+    pub fn is_key_just_released(&self, key: KeyCode) -> bool {
+        matches!(self.keyboard.get(&key), Some(ButtonState::JustReleased))
     }
 
-    /// 处理键盘释放事件
-    pub fn on_key_up(&mut self, key: KeyCode) {
-        self.state.keys_held.remove(&key);
-        self.state.keys_released.insert(key);
-        self.prev_keys.remove(&key);
+    // ── 鼠标查询 ──────────────────────────────────────────────────────────
+
+    /// 鼠标按键是否被按住
+    pub fn is_mouse_button_pressed(&self, btn: MouseButton) -> bool {
+        matches!(
+            self.mouse_buttons.get(&btn),
+            Some(ButtonState::JustPressed | ButtonState::Held)
+        )
     }
 
-    /// 处理鼠标按下
-    pub fn on_mouse_down(&mut self, button: MouseButton) {
-        if !self.prev_mouse.contains(&button) {
-            self.state.mouse_pressed.insert(button);
-        }
-        self.state.mouse_held.insert(button);
-        self.prev_mouse.insert(button);
+    /// 鼠标按键是否在本帧刚刚按下
+    pub fn is_mouse_button_just_pressed(&self, btn: MouseButton) -> bool {
+        matches!(self.mouse_buttons.get(&btn), Some(ButtonState::JustPressed))
     }
 
-    /// 处理鼠标释放
-    pub fn on_mouse_up(&mut self, button: MouseButton) {
-        self.state.mouse_held.remove(&button);
-        self.state.mouse_released.insert(button);
-        self.prev_mouse.remove(&button);
+    /// 鼠标按键是否在本帧刚刚释放
+    pub fn is_mouse_button_just_released(&self, btn: MouseButton) -> bool {
+        matches!(
+            self.mouse_buttons.get(&btn),
+            Some(ButtonState::JustReleased)
+        )
     }
 
-    /// 处理鼠标移动
-    pub fn on_mouse_move(&mut self, x: f32, y: f32, dx: f32, dy: f32) {
-        self.state.mouse_position = (x, y);
-        self.state.mouse_delta = (self.state.mouse_delta.0 + dx, self.state.mouse_delta.1 + dy);
+    /// 鼠标当前位置（像素）
+    #[inline]
+    pub fn mouse_position(&self) -> glam::Vec2 {
+        self.mouse_position
     }
 
-    /// 处理滚轮
-    pub fn on_scroll(&mut self, dx: f32, dy: f32) {
-        self.state.scroll_delta = (
-            self.state.scroll_delta.0 + dx,
-            self.state.scroll_delta.1 + dy,
-        );
+    /// 本帧鼠标移动量
+    #[inline]
+    pub fn mouse_delta(&self) -> glam::Vec2 {
+        self.mouse_delta
     }
 
-    /// 设置手柄轴值
-    pub fn on_gamepad_axis(&mut self, id: u8, axis: GamepadAxis, value: f32) {
-        self.state.gamepad_axes.insert((id, axis), value);
+    /// 本帧滚轮增量
+    #[inline]
+    pub fn scroll_delta(&self) -> f32 {
+        self.scroll_delta
     }
 
-    // ── 动作查询 ───────────────────────────────────────────────────────────
+    // ── 动作映射 ──────────────────────────────────────────────────────────
 
-    /// 动作是否刚被触发（单帧）
-    pub fn is_action_just_pressed(&self, action: &str) -> bool {
-        if let Some(action) = self.actions.get(action) {
-            action.bindings.iter().any(|b| match b {
-                InputBinding::Key(k) => self.state.is_key_just_pressed(*k),
-                InputBinding::Mouse(m) => self.state.is_mouse_just_pressed(*m),
-                InputBinding::Gamepad { .. } => false, // TODO
-            })
+    /// 注册输入动作映射
+    pub fn register_action(&mut self, action: InputAction, keys: Vec<KeyCode>) {
+        self.action_map.insert(action, keys);
+    }
+
+    /// 动作是否被触发（持续）
+    pub fn is_action_pressed(&self, action: &InputAction) -> bool {
+        if let Some(keys) = self.action_map.get(action) {
+            keys.iter().any(|&k| self.is_key_pressed(k))
         } else {
             false
         }
     }
 
-    /// 动作是否持续触发
-    pub fn is_action_pressed(&self, action: &str) -> bool {
-        if let Some(action) = self.actions.get(action) {
-            action.bindings.iter().any(|b| match b {
-                InputBinding::Key(k) => self.state.is_key_pressed(*k),
-                InputBinding::Mouse(m) => self.state.is_mouse_pressed(*m),
-                InputBinding::Gamepad { .. } => false,
-            })
+    /// 动作是否在本帧刚触发
+    pub fn is_action_just_pressed(&self, action: &InputAction) -> bool {
+        if let Some(keys) = self.action_map.get(action) {
+            keys.iter().any(|&k| self.is_key_just_pressed(k))
         } else {
             false
         }
     }
 
-    /// 动作是否刚被释放
-    pub fn is_action_just_released(&self, action: &str) -> bool {
-        if let Some(action) = self.actions.get(action) {
-            action.bindings.iter().any(|b| match b {
-                InputBinding::Key(k) => self.state.is_key_just_released(*k),
-                InputBinding::Mouse(m) => self.state.is_mouse_just_released(*m),
-                InputBinding::Gamepad { .. } => false,
-            })
+    /// 动作是否在本帧刚释放
+    pub fn is_action_just_released(&self, action: &InputAction) -> bool {
+        if let Some(keys) = self.action_map.get(action) {
+            keys.iter().any(|&k| self.is_key_just_released(k))
         } else {
             false
         }
     }
 
-    /// 获取 1D 输入轴（正向 - 负向，范围 -1.0 ~ 1.0）
-    pub fn get_axis(&self, negative_action: &str, positive_action: &str) -> f32 {
-        let positive = if self.is_action_pressed(positive_action) {
-            1.0
-        } else {
-            0.0
-        };
-        let negative = if self.is_action_pressed(negative_action) {
-            1.0
-        } else {
-            0.0
-        };
-        positive - negative
+    /// 获取轴输入值（-1.0 / 0.0 / 1.0）
+    ///
+    /// 正方向键按下返回 1.0，负方向键按下返回 -1.0。
+    pub fn get_axis(&self, negative: KeyCode, positive: KeyCode) -> f32 {
+        let pos = if self.is_key_pressed(positive) { 1.0 } else { 0.0 };
+        let neg = if self.is_key_pressed(negative) { 1.0 } else { 0.0 };
+        pos - neg
     }
 
-    /// 获取 2D 输入向量（归一化）
-    pub fn get_vector(&self, left: &str, right: &str, up: &str, down: &str) -> (f32, f32) {
+    /// 获取 2D 向量输入（方向键/WASD）
+    pub fn get_vector(
+        &self,
+        left: KeyCode,
+        right: KeyCode,
+        up: KeyCode,
+        down: KeyCode,
+    ) -> glam::Vec2 {
         let x = self.get_axis(left, right);
-        let y = self.get_axis(down, up);
-        // 归一化
-        let len = (x * x + y * y).sqrt();
-        if len > 1.0 {
-            (x / len, y / len)
-        } else {
-            (x, y)
+        let y = self.get_axis(down, up); // Y 轴向上
+        glam::Vec2::new(x, y).normalize_or_zero()
+    }
+
+    // ── 状态更新（由平台层调用）──────────────────────────────────────────
+
+    /// 通知键按下事件
+    pub fn press_key(&mut self, key: KeyCode) {
+        let state = self.keyboard.entry(key).or_insert(ButtonState::Released);
+        if matches!(state, ButtonState::Released | ButtonState::JustReleased) {
+            *state = ButtonState::JustPressed;
         }
+    }
+
+    /// 通知键释放事件
+    pub fn release_key(&mut self, key: KeyCode) {
+        self.keyboard.insert(key, ButtonState::JustReleased);
+    }
+
+    /// 通知鼠标按键按下
+    pub fn press_mouse_button(&mut self, btn: MouseButton) {
+        let state = self.mouse_buttons.entry(btn).or_insert(ButtonState::Released);
+        if matches!(state, ButtonState::Released | ButtonState::JustReleased) {
+            *state = ButtonState::JustPressed;
+        }
+    }
+
+    /// 通知鼠标按键释放
+    pub fn release_mouse_button(&mut self, btn: MouseButton) {
+        self.mouse_buttons.insert(btn, ButtonState::JustReleased);
+    }
+
+    /// 通知鼠标移动
+    pub fn move_mouse(&mut self, position: glam::Vec2, delta: glam::Vec2) {
+        self.mouse_position = position;
+        self.mouse_delta += delta; // 累加（帧内多次移动）
+    }
+
+    /// 通知鼠标滚轮
+    pub fn scroll_mouse(&mut self, delta: f32) {
+        self.scroll_delta += delta;
+    }
+
+    /// 帧结束时推进状态机（JustPressed→Held，JustReleased→Released）
+    ///
+    /// 必须在每帧末调用一次。
+    pub fn flush(&mut self) {
+        for state in self.keyboard.values_mut() {
+            match state {
+                ButtonState::JustPressed => *state = ButtonState::Held,
+                ButtonState::JustReleased => *state = ButtonState::Released,
+                _ => {}
+            }
+        }
+        for state in self.mouse_buttons.values_mut() {
+            match state {
+                ButtonState::JustPressed => *state = ButtonState::Held,
+                ButtonState::JustReleased => *state = ButtonState::Released,
+                _ => {}
+            }
+        }
+        // 重置逐帧累积量
+        self.mouse_delta = glam::Vec2::ZERO;
+        self.scroll_delta = 0.0;
+    }
+
+    /// 获取所有当前按下的键
+    pub fn pressed_keys(&self) -> HashSet<KeyCode> {
+        self.keyboard
+            .iter()
+            .filter(|(_, s)| matches!(s, ButtonState::JustPressed | ButtonState::Held))
+            .map(|(&k, _)| k)
+            .collect()
     }
 }
 
@@ -486,34 +335,42 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_key_just_pressed() {
-        let mut manager = InputManager::new();
-        manager.begin_frame();
-        manager.on_key_down(KeyCode::W);
-        assert!(manager.state.is_key_just_pressed(KeyCode::W));
-        assert!(manager.state.is_key_pressed(KeyCode::W));
-        assert!(!manager.state.is_key_just_released(KeyCode::W));
-    }
+    fn test_key_state_transitions() {
+        let mut input = InputManager::new();
 
-    #[test]
-    fn test_key_held_not_just_pressed() {
-        let mut manager = InputManager::new();
-        // 第一帧：按下
-        manager.begin_frame();
-        manager.on_key_down(KeyCode::W);
-        // 第二帧：保持按下
-        manager.begin_frame();
-        manager.on_key_down(KeyCode::W);
-        assert!(!manager.state.is_key_just_pressed(KeyCode::W));
-        assert!(manager.state.is_key_pressed(KeyCode::W));
+        input.press_key(KeyCode::Space);
+        assert!(input.is_key_just_pressed(KeyCode::Space));
+        assert!(input.is_key_pressed(KeyCode::Space));
+
+        input.flush();
+        assert!(!input.is_key_just_pressed(KeyCode::Space));
+        assert!(input.is_key_pressed(KeyCode::Space));
+
+        input.release_key(KeyCode::Space);
+        assert!(input.is_key_just_released(KeyCode::Space));
+        assert!(!input.is_key_pressed(KeyCode::Space));
+
+        input.flush();
+        assert!(!input.is_key_just_released(KeyCode::Space));
     }
 
     #[test]
     fn test_get_axis() {
-        let mut manager = InputManager::new();
-        manager.begin_frame();
-        manager.on_key_down(KeyCode::D); // move_right
-        let axis = manager.get_axis("move_left", "move_right");
-        assert!((axis - 1.0).abs() < 0.001);
+        let mut input = InputManager::new();
+        input.press_key(KeyCode::D);
+        assert!((input.get_axis(KeyCode::A, KeyCode::D) - 1.0).abs() < f32::EPSILON);
+
+        input.press_key(KeyCode::A);
+        assert!(input.get_axis(KeyCode::A, KeyCode::D).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_action_mapping() {
+        let mut input = InputManager::new();
+        input.register_action("jump".into(), vec![KeyCode::Space, KeyCode::W]);
+
+        input.press_key(KeyCode::Space);
+        assert!(input.is_action_just_pressed(&"jump".into()));
+        assert!(input.is_action_pressed(&"jump".into()));
     }
 }
