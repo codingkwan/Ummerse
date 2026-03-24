@@ -1,66 +1,81 @@
-# ── .cargo/config.toml ─────────────────────────────────────────────────────────
-# 工作区级别 Cargo 配置，重点优化编译速度
+# ── Ummerse 项目级 Cargo 配置 ─────────────────────────────────────────────────
+# 放置于工作区根目录的 .cargo/config.toml
+# 优先级高于全局 ~/.cargo/config.toml
 
-# ── 编译器后端 ─────────────────────────────────────────────────────────────────
+# ── 编译器标志优化 ─────────────────────────────────────────────────────────────
 [build]
-# 并行 job 数：省略此行让 Cargo 自动使用 CPU 核数
-# jobs = 0  # 注意：0 是非法值，已禁用
+# 启用 rustc 增量编译（dev profile 已在 Cargo.toml 中设置，此处为双保险）
+incremental = true
+# 注意：jobs = 0 在某些版本的 cargo 中不被支持，省略则自动使用 CPU 核心数
+# jobs = 8  # 可按机器 CPU 核心数手动设定
 
-# ── 目标平台配置 ───────────────────────────────────────────────────────────────
+# ── 编译目标优化 ───────────────────────────────────────────────────────────────
 [target.x86_64-pc-windows-msvc]
-# rust-lld 链接器（比 link.exe 快 3-5x）
-# 注意：需要安装 lld，如未安装可注释此行使用默认 link.exe
-# linker = "rust-lld"
-rustflags = [
-    # 使用 native CPU 指令集（AVX2/SSE4 等），提升运行时性能
-    "-C",
-    "target-cpu=native",
-]
+# Windows MSVC：减少调试符号体积，加快链接和增量编译速度
+# 注意：-Z share-generics 仅 nightly 可用，stable 工具链请勿使用
+# 若安装了 lld-link 可启用："-C", "link-arg=-fuse-ld=lld"
+rustflags = ["-C", "debuginfo=line-tables-only", "-C", "split-debuginfo=packed"]
 
 [target.x86_64-unknown-linux-gnu]
-# 使用 mold 或 lld 链接器（比 ld 快 5-10x）
-# 优先尝试 mold，若未安装则使用 lld
-linker = "clang"
+# Linux：可启用 mold 加速链接（安装后取消注释）
 rustflags = [
+    # "-C", "link-arg=-fuse-ld=mold",
     "-C",
-    "link-arg=-fuse-ld=lld",
-    "-C",
-    "target-cpu=native",
+    "debuginfo=line-tables-only",
     "-C",
     "split-debuginfo=unpacked",
 ]
 
 [target.x86_64-apple-darwin]
-rustflags = ["-C", "target-cpu=native", "-C", "split-debuginfo=unpacked"]
+# macOS Intel
+rustflags = [
+    "-C",
+    "debuginfo=line-tables-only",
+    "-C",
+    "split-debuginfo=unpacked",
+]
 
 [target.aarch64-apple-darwin]
-rustflags = ["-C", "target-cpu=native", "-C", "split-debuginfo=unpacked"]
+# macOS Apple Silicon
+rustflags = [
+    "-C",
+    "debuginfo=line-tables-only",
+    "-C",
+    "split-debuginfo=unpacked",
+]
 
-# ── Wasm 目标 ──────────────────────────────────────────────────────────────────
+# ── Wasm 目标：体积优化 ────────────────────────────────────────────────────────
 [target.wasm32-unknown-unknown]
-rustflags = []
+rustflags = [
+    # Wasm 不需要 debuginfo
+    "-C",
+    "debuginfo=0",
+]
 
-# ── 网络 ───────────────────────────────────────────────────────────────────────
+# ── 稀疏注册表协议（Cargo 1.68+，显著加速 cargo check/build 的元数据获取）────
+[registries.crates-io]
+protocol = "sparse"
+
+# ── 网络配置 ───────────────────────────────────────────────────────────────────
 [net]
-retry = 3
+# 关闭 Git fetch（使用稀疏协议后不再需要）
 git-fetch-with-cli = false
+# 允许重试（网络波动时）
+retry = 3
 
-# ── 注册表镜像（中国大陆加速，按需启用） ──────────────────────────────────────
-# [source.crates-io]
-# replace-with = "rsproxy"
-# [source.rsproxy]
-# registry = "sparse+https://rsproxy.cn/index/"
-
-# ── 终端输出 ───────────────────────────────────────────────────────────────────
-[term]
-color = "auto"
-verbose = false
-progress.when = "auto"
-progress.width = 80
-
-# ── 环境变量 ───────────────────────────────────────────────────────────────────
-[env]
-# 减少 wgpu 验证层日志噪声
-WGPU_BACKEND = { value = "vulkan,metal,dx12", force = false }
-# Tokio 工作线程数（0 = 自动检测 CPU 核心数）
-TOKIO_WORKER_THREADS = { value = "0", force = false }
+# ── 别名：常用开发命令 ─────────────────────────────────────────────────────────
+[alias]
+# 快速检查所有 crate（不生成代码）
+ck = "check --workspace"
+# 检查 + clippy
+lint = "clippy --workspace --all-targets -- -D warnings"
+# 仅编译核心库（跳过 editor/runtime，最快）
+ck-core = "check -p ummerse-core -p ummerse-math -p ummerse-scene -p ummerse-renderer"
+# 运行编辑器
+ed = "run --bin ummerse-editor"
+# 运行 runtime
+rt = "run --bin ummerse-runtime"
+# 运行测试（单线程，避免测试间竞争）
+t = "test --workspace -- --test-threads=4"
+# 文档
+doc = "doc --workspace --no-deps --open"

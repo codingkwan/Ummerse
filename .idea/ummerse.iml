@@ -2,11 +2,24 @@
 <module type="EMPTY_MODULE" version="4">
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/crates/core/ummerse-core/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/core/ummerse-math/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/function/ummerse-audio/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/function/ummerse-physics/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/function/ummerse-renderer/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/function/ummerse-script/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/platform/ummerse-runtime/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/resource/ummerse-asset/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/resource/ummerse-scene/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/tool/ummerse-editor/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/tool/ummerse-mcp/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/tool/ummerse-plugin/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/ummerse-asset/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/ummerse-audio/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/ummerse-core/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/ummerse-editor/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/ummerse-math/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/ummerse-mcp/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/ummerse-physics/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/ummerse-plugin/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/ummerse-renderer/src" isTestSource="false" />

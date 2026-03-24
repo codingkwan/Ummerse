@@ -1,17 +1,26 @@
 [workspace]
 members = [
-    "crates/ummerse-core",
-    "crates/ummerse-math",
-    "crates/ummerse-renderer",
-    "crates/ummerse-scene",
-    "crates/ummerse-asset",
-    "crates/ummerse-script",
-    "crates/ummerse-physics",
-    "crates/ummerse-audio",
-    "crates/ummerse-editor",
-    "crates/ummerse-runtime",
-    "crates/ummerse-plugin",
-    "crates/ummerse-mcp",
+    # 🧱 Platform Layer
+    "crates/platform/ummerse-runtime",
+
+    # 🧠 Core Layer
+    "crates/core/ummerse-core",
+    "crates/core/ummerse-math",
+
+    # 📦 Resource Layer
+    "crates/resource/ummerse-asset",
+    "crates/resource/ummerse-scene",
+
+    # ⚙️ Function Layer
+    "crates/function/ummerse-renderer",
+    "crates/function/ummerse-physics",
+    "crates/function/ummerse-audio",
+    "crates/function/ummerse-script",
+
+    # 🛠️ Tool Layer
+    "crates/tool/ummerse-editor",
+    "crates/tool/ummerse-mcp",
+    "crates/tool/ummerse-plugin",
 ]
 resolver = "2"
 
@@ -171,18 +180,23 @@ wasmtime = { version = "27", default-features = false, features = [
 taffy = "0.5"
 
 # ── Workspace internal crates ──────────────────────────────────────────────────
-ummerse-core = { path = "crates/ummerse-core" }
-ummerse-math = { path = "crates/ummerse-math" }
-ummerse-renderer = { path = "crates/ummerse-renderer" }
-ummerse-scene = { path = "crates/ummerse-scene" }
-ummerse-asset = { path = "crates/ummerse-asset" }
-ummerse-script = { path = "crates/ummerse-script" }
-ummerse-physics = { path = "crates/ummerse-physics" }
-ummerse-audio = { path = "crates/ummerse-audio" }
-ummerse-editor = { path = "crates/ummerse-editor" }
-ummerse-runtime = { path = "crates/ummerse-runtime" }
-ummerse-plugin = { path = "crates/ummerse-plugin" }
-ummerse-mcp = { path = "crates/ummerse-mcp" }
+# 🧱 Platform Layer
+ummerse-runtime = { path = "crates/platform/ummerse-runtime" }
+# 🧠 Core Layer
+ummerse-core = { path = "crates/core/ummerse-core" }
+ummerse-math = { path = "crates/core/ummerse-math" }
+# 📦 Resource Layer
+ummerse-asset = { path = "crates/resource/ummerse-asset" }
+ummerse-scene = { path = "crates/resource/ummerse-scene" }
+# ⚙️ Function Layer
+ummerse-renderer = { path = "crates/function/ummerse-renderer" }
+ummerse-physics = { path = "crates/function/ummerse-physics" }
+ummerse-audio = { path = "crates/function/ummerse-audio" }
+ummerse-script = { path = "crates/function/ummerse-script" }
+# 🛠️ Tool Layer
+ummerse-editor = { path = "crates/tool/ummerse-editor" }
+ummerse-mcp = { path = "crates/tool/ummerse-mcp" }
+ummerse-plugin = { path = "crates/tool/ummerse-plugin" }
 
 # ── Build Profiles ─────────────────────────────────────────────────────────────
 
