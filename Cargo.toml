@@ -32,7 +32,7 @@ authors = ["Ummerse Team"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/ummerse/ummerse"
 homepage = "https://ummerse.dev"
-description = "A modern 2D/3D game engine built with Rust"
+description = "A modern AI-driven 2D/3D game engine built with Rust"
 
 # ── 统一 Lint 规则（所有 crate 继承）──────────────────────────────────────────
 [workspace.lints.rust]
@@ -118,6 +118,7 @@ tokio = { version = "1", features = [
     "time",
     "io-util",
     "macros",
+    "io-std",
 ] }
 async-trait = "0.1"
 
@@ -139,7 +140,7 @@ uuid = { version = "1", features = ["v4", "serde"] }
 # ── Utilities ─────────────────────────────────────────────────────────────────
 dashmap = "6"
 parking_lot = "0.12"
-bitflags = "2"
+bitflags = { version = "2", features = ["serde"] }
 once_cell = "1"
 smallvec = { version = "1", features = ["serde"] }
 indexmap = { version = "2", features = ["serde"] }
@@ -202,15 +203,31 @@ ummerse-plugin = { path = "crates/tool/ummerse-plugin" }
 
 # ── dev profile：增量编译 + 第三方依赖全优化 ─────────────────────────────────
 [profile.dev]
-opt-level = 1
-debug = "line-tables-only"
-incremental = true
-codegen-units = 256
+opt-level = 1          # 基本优化，平衡编译速度和运行性能
+debug = "line-tables-only"  # 仅行号调试信息，缩减体积
+incremental = true     # 开启增量编译
+codegen-units = 256    # 高并行度，加速增量编译
 
 # 所有第三方 crate 始终以 opt-level=3 编译（只编译一次后常驻缓存）
 [profile.dev.package."*"]
 opt-level = 3
 debug = false
+
+# Bevy 相关依赖优化等级提高，减少 dev 下的性能损耗
+[profile.dev.package.bevy_ecs]
+opt-level = 3
+[profile.dev.package.bevy_reflect]
+opt-level = 3
+[profile.dev.package.bevy_render]
+opt-level = 3
+[profile.dev.package.wgpu]
+opt-level = 3
+[profile.dev.package.naga]
+opt-level = 3
+[profile.dev.package.glam]
+opt-level = 3
+[profile.dev.package.image]
+opt-level = 3
 
 # ── release profile ───────────────────────────────────────────────────────────
 [profile.release]

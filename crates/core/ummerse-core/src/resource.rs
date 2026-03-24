@@ -291,7 +291,8 @@ mod tests {
         let mut reg = ResourceRegistry::new();
         reg.insert(MyCounter { value: 7 });
         let res = reg.res::<MyCounter>();
-        assert_eq!(res.value, 7); // 通过 Deref 访问
+        // Res<T> 内部字段名为 `value: &T`，需明确解引用访问 T 的字段
+        assert_eq!((*res).value, 7);
     }
 
     #[test]
@@ -300,7 +301,8 @@ mod tests {
         reg.insert(MyCounter { value: 0 });
         {
             let mut r = reg.res_mut::<MyCounter>();
-            r.value = 99;
+            // ResMut<T> 内部字段名为 `value: &mut T`，需明确解引用后赋值
+            (*r).value = 99;
         }
         assert_eq!(reg.get::<MyCounter>().unwrap().value, 99);
     }

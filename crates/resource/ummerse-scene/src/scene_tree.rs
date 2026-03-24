@@ -124,12 +124,11 @@ impl SceneTree {
         self.collect_subtree(id, &mut to_remove);
 
         // 从父节点移除引用
-        if let Some(node) = self.nodes.get(&id) {
-            if let Some(pid) = node.parent {
-                if let Some(parent) = self.nodes.get_mut(&pid) {
-                    parent.children.retain(|&c| c != id);
-                }
-            }
+        if let Some(node) = self.nodes.get(&id)
+            && let Some(pid) = node.parent
+            && let Some(parent) = self.nodes.get_mut(&pid)
+        {
+            parent.children.retain(|&c| c != id);
         }
 
         // 移除所有节点
@@ -175,10 +174,10 @@ impl SceneTree {
     pub fn reparent(&mut self, id: NodeId, new_parent: Option<NodeId>) -> Result<()> {
         // 从旧父节点移除
         let old_parent = self.nodes.get(&id).and_then(|n| n.parent);
-        if let Some(old_pid) = old_parent {
-            if let Some(old_parent_node) = self.nodes.get_mut(&old_pid) {
-                old_parent_node.children.retain(|&c| c != id);
-            }
+        if let Some(old_pid) = old_parent
+            && let Some(old_parent_node) = self.nodes.get_mut(&old_pid)
+        {
+            old_parent_node.children.retain(|&c| c != id);
         }
 
         // 添加到新父节点
@@ -431,10 +430,10 @@ impl SceneTree {
             }
 
             // 添加到父节点的 children
-            if let Some(pid) = new_parent {
-                if let Some(parent_node) = self.nodes.get_mut(&pid) {
-                    parent_node.children.push(new_id);
-                }
+            if let Some(pid) = new_parent
+                && let Some(parent_node) = self.nodes.get_mut(&pid)
+            {
+                parent_node.children.push(new_id);
             }
             self.nodes.insert(new_id, new_node);
         }

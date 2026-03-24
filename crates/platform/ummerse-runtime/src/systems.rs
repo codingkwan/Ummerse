@@ -3,6 +3,9 @@
 //! 定义 Ummerse 引擎的 ECS 组件、系统和插件。
 //! 所有组件均可通过 Bevy Query 系统高效访问。
 
+// Bevy 系统函数必须按值接收 Res/Query 等参数（框架设计要求），对此 lint 统一豁免
+#![allow(clippy::needless_pass_by_value)]
+
 use bevy::prelude::*;
 
 // ── 变换组件 ──────────────────────────────────────────────────────────────────
@@ -470,6 +473,7 @@ pub fn physics_step_2d(
 }
 
 /// 初始化未初始化的脚本组件
+#[allow(clippy::needless_pass_by_value)]
 pub fn initialize_scripts(mut query: Query<(Entity, &mut ScriptComponent)>) {
     for (entity, mut script) in query.iter_mut() {
         if !script.initialized {
@@ -485,6 +489,7 @@ pub fn initialize_scripts(mut query: Query<(Entity, &mut ScriptComponent)>) {
 }
 
 /// 场景统计调试系统（仅 debug 级别日志）
+#[allow(clippy::needless_pass_by_value)]
 pub fn debug_scene_stats(
     nodes: Query<&NodeName>,
     sprites: Query<&SpriteComponent>,

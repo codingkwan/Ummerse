@@ -162,19 +162,19 @@ impl PluginHost {
                 plugin_id,
             } => match level {
                 crate::protocol::LogLevel::Error => {
-                    error!(target: "plugin", "[{}] {}", plugin_id, message)
+                    error!(target: "plugin", "[{}] {}", plugin_id, message);
                 }
                 crate::protocol::LogLevel::Warn => {
-                    warn!(target: "plugin", "[{}] {}", plugin_id, message)
+                    warn!(target: "plugin", "[{}] {}", plugin_id, message);
                 }
                 crate::protocol::LogLevel::Info => {
-                    info!(target: "plugin", "[{}] {}", plugin_id, message)
+                    info!(target: "plugin", "[{}] {}", plugin_id, message);
                 }
                 crate::protocol::LogLevel::Debug => {
-                    tracing::debug!(target: "plugin", "[{}] {}", plugin_id, message)
+                    tracing::debug!(target: "plugin", "[{}] {}", plugin_id, message);
                 }
                 crate::protocol::LogLevel::Trace => {
-                    tracing::trace!(target: "plugin", "[{}] {}", plugin_id, message)
+                    tracing::trace!(target: "plugin", "[{}] {}", plugin_id, message);
                 }
             },
             PluginMessage::Shutdown => {

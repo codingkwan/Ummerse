@@ -72,7 +72,7 @@ fn setup_demo_scene(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     // 2D 正交相机
-    commands.spawn(Camera2d::default());
+    commands.spawn(Camera2d);
 
     // 中央彩色方块
     commands.spawn((
@@ -108,6 +108,7 @@ struct DemoRotate {
 }
 
 /// 旋转演示系统
+#[allow(clippy::needless_pass_by_value)]
 fn demo_rotate_system(time: Res<Time>, mut query: Query<(&DemoRotate, &mut Transform)>) {
     for (rotate, mut transform) in query.iter_mut() {
         transform.rotate_z(rotate.speed * time.delta_secs());

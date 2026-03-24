@@ -319,11 +319,13 @@ impl EngineBridge {
     }
 
     /// 设置实体属性
+    ///
+    /// `value` 使用引用避免不必要的所有权转移，内部需要存储时再 clone。
     pub fn set_property(
         &self,
         name_or_id: &str,
         property: &str,
-        value: serde_json::Value,
+        value: &serde_json::Value,
     ) -> Result<String, String> {
         let mut state = self.state.lock().unwrap();
 
@@ -363,9 +365,10 @@ impl EngineBridge {
                     }
                     _ => {}
                 }
-                // 存入自定义属性
+                // 存入自定义属性（clone 后存储）
+                let display = value.to_string();
                 e.properties.insert(property.to_string(), value.clone());
-                Ok(format!("Set '{}'.{} = {}", e.name, property, value))
+                Ok(format!("Set '{}'.{} = {}", e.name, property, display))
             }
             None => Err(format!("Entity '{}' not found", name_or_id)),
         }

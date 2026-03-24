@@ -293,15 +293,15 @@ impl EngineTool for WriteFileTool {
         let path = require_str!(call, "path");
         let content = require_str!(call, "content");
 
-        if let Some(parent) = std::path::Path::new(path).parent() {
-            if !parent.as_os_str().is_empty() {
-                if let Err(e) = std::fs::create_dir_all(parent) {
-                    return ToolResult::error(
-                        &call.id,
-                        self.name(),
-                        format!("Cannot create directory '{}': {e}", parent.display()),
-                    );
-                }
+        if let Some(parent) = std::path::Path::new(path).parent()
+            && !parent.as_os_str().is_empty()
+        {
+            if let Err(e) = std::fs::create_dir_all(parent) {
+                return ToolResult::error(
+                    &call.id,
+                    self.name(),
+                    format!("Cannot create directory '{}': {e}", parent.display()),
+                );
             }
         }
 
@@ -349,7 +349,7 @@ impl EngineTool for ListFilesTool {
         let recursive = call
             .parameters
             .get("recursive")
-            .and_then(|v| v.as_bool())
+            .and_then(serde_json::Value::as_bool)
             .unwrap_or(false);
 
         let mut entries: Vec<Value> = Vec::new();
@@ -447,12 +447,12 @@ impl EngineTool for SearchFilesTool {
         let case_sensitive = call
             .parameters
             .get("case_sensitive")
-            .and_then(|v| v.as_bool())
+            .and_then(serde_json::Value::as_bool)
             .unwrap_or(false);
         let max_results = call
             .parameters
             .get("max_results")
-            .and_then(|v| v.as_u64())
+            .and_then(serde_json::Value::as_u64)
             .unwrap_or(50) as usize;
 
         let pattern_cmp = if case_sensitive {

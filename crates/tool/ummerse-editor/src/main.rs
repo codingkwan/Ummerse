@@ -129,6 +129,7 @@ pub struct EditorConfig {
 // ── Bevy Systems ──────────────────────────────────────────────────────────────
 
 /// 编辑器启动系统
+#[allow(clippy::needless_pass_by_value)]
 fn editor_startup_system(editor: Res<EditorStateResource>, tools: Res<EditorToolRegistryResource>) {
     let app = &editor.0;
 
@@ -145,6 +146,7 @@ fn editor_startup_system(editor: Res<EditorStateResource>, tools: Res<EditorTool
 }
 
 /// 编辑器每帧更新系统
+#[allow(clippy::needless_pass_by_value)]
 fn editor_update_system(editor: ResMut<EditorStateResource>, time: Res<Time>) {
     // 每 5 秒打印一次诊断（仅 trace 级别）
     if (time.elapsed_secs() % 5.0) < time.delta_secs() {
@@ -158,6 +160,7 @@ fn editor_update_system(editor: ResMut<EditorStateResource>, time: Res<Time>) {
 }
 
 /// 编辑器快捷键处理系统
+#[allow(clippy::needless_pass_by_value)]
 fn handle_editor_shortcuts(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut editor: ResMut<EditorStateResource>,
@@ -253,6 +256,7 @@ impl CliArgs {
                     i += 1;
                     if i < args.len() {
                         let parts: Vec<&str> = args[i].split('x').collect();
+                        #[allow(clippy::collapsible_if)]
                         if parts.len() == 2 {
                             if let (Ok(w), Ok(h)) =
                                 (parts[0].parse::<u32>(), parts[1].parse::<u32>())

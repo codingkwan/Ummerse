@@ -177,9 +177,10 @@ impl ToolOutput {
         ])
     }
 
-    pub fn json(v: Value) -> Self {
+    /// 将 JSON 值序列化为文本输出
+    pub fn json(v: &Value) -> Self {
         Self::Success(vec![
-            serde_json::json!({ "type": "text", "text": serde_json::to_string_pretty(&v).unwrap_or_default() }),
+            serde_json::json!({ "type": "text", "text": serde_json::to_string_pretty(v).unwrap_or_default() }),
         ])
     }
 
@@ -197,12 +198,11 @@ impl ToolOutput {
 pub fn dispatch_tool(tool_name: &str, params: &Value, bridge: &EngineBridge) -> ToolOutput {
     match tool_name {
         "move_block" => {
-            let name = match params.get("name").and_then(|v| v.as_str()) {
-                Some(s) => s,
-                None => return ToolOutput::err("缺少必需参数: 'name'"),
+            let Some(name) = params.get("name").and_then(Value::as_str) else {
+                return ToolOutput::err("缺少必需参数: 'name'");
             };
-            let dx = params.get("dx").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
-            let dy = params.get("dy").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
+            let dx = params.get("dx").and_then(Value::as_f64).unwrap_or(0.0) as f32;
+            let dy = params.get("dy").and_then(Value::as_f64).unwrap_or(0.0) as f32;
 
             match bridge.move_entity(name, dx, dy) {
                 Ok((entity_name, new_pos)) => ToolOutput::text(format!(
@@ -214,15 +214,14 @@ pub fn dispatch_tool(tool_name: &str, params: &Value, bridge: &EngineBridge) -> 
         }
 
         "set_position" => {
-            let name = match params.get("name").and_then(|v| v.as_str()) {
-                Some(s) => s,
-                None => return ToolOutput::err("缺少必需参数: 'name'"),
+            let Some(name) = params.get("name").and_then(Value::as_str) else {
+                return ToolOutput::err("缺少必需参数: 'name'");
             };
-            let x = match params.get("x").and_then(|v| v.as_f64()) {
+            let x = match params.get("x").and_then(Value::as_f64) {
                 Some(v) => v as f32,
                 None => return ToolOutput::err("缺少必需参数: 'x'"),
             };
-            let y = match params.get("y").and_then(|v| v.as_f64()) {
+            let y = match params.get("y").and_then(Value::as_f64) {
                 Some(v) => v as f32,
                 None => return ToolOutput::err("缺少必需参数: 'y'"),
             };
@@ -234,13 +233,12 @@ pub fn dispatch_tool(tool_name: &str, params: &Value, bridge: &EngineBridge) -> 
         }
 
         "spawn_entity" => {
-            let name = match params.get("name").and_then(|v| v.as_str()) {
-                Some(s) => s,
-                None => return ToolOutput::err("缺少必需参数: 'name'"),
+            let Some(name) = params.get("name").and_then(Value::as_str) else {
+                return ToolOutput::err("缺少必需参数: 'name'");
             };
             let kind = match params
                 .get("kind")
-                .and_then(|v| v.as_str())
+                .and_then(Value::as_str)
                 .unwrap_or("block")
             {
                 "circle" => EntityKind::Circle,
@@ -254,8 +252,8 @@ pub fn dispatch_tool(tool_name: &str, params: &Value, bridge: &EngineBridge) -> 
                     }
                 }
             };
-            let x = params.get("x").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
-            let y = params.get("y").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
+            let x = params.get("x").and_then(Value::as_f64).unwrap_or(0.0) as f32;
+            let y = params.get("y").and_then(Value::as_f64).unwrap_or(0.0) as f32;
 
             let id = bridge.spawn_entity(name, kind, x, y);
             ToolOutput::text(format!(
@@ -265,9 +263,8 @@ pub fn dispatch_tool(tool_name: &str, params: &Value, bridge: &EngineBridge) -> 
         }
 
         "despawn_entity" => {
-            let name = match params.get("name").and_then(|v| v.as_str()) {
-                Some(s) => s,
-                None => return ToolOutput::err("缺少必需参数: 'name'"),
+            let Some(name) = params.get("name").and_then(Value::as_str) else {
+                return ToolOutput::err("缺少必需参数: 'name'");
             };
 
             match bridge.despawn_entity(name) {
@@ -278,33 +275,29 @@ pub fn dispatch_tool(tool_name: &str, params: &Value, bridge: &EngineBridge) -> 
 
         "get_scene" => {
             let snapshot = bridge.get_scene_snapshot();
-            ToolOutput::json(snapshot)
+            ToolOutput::json(&snapshot)
         }
 
         "get_entity" => {
-            let name = match params.get("name").and_then(|v| v.as_str()) {
-                Some(s) => s,
-                None => return ToolOutput::err("缺少必需参数: 'name'"),
+            let Some(name) = params.get("name").and_then(Value::as_str) else {
+                return ToolOutput::err("缺少必需参数: 'name'");
             };
 
             match bridge.get_entity(name) {
-                Some(entity) => ToolOutput::json(entity),
+                Some(entity) => ToolOutput::json(&entity),
                 None => ToolOutput::err(format!("实体 '{}' 不存在", name)),
             }
         }
 
         "set_property" => {
-            let name = match params.get("name").and_then(|v| v.as_str()) {
-                Some(s) => s,
-                None => return ToolOutput::err("缺少必需参数: 'name'"),
+            let Some(name) = params.get("name").and_then(Value::as_str) else {
+                return ToolOutput::err("缺少必需参数: 'name'");
             };
-            let property = match params.get("property").and_then(|v| v.as_str()) {
-                Some(s) => s,
-                None => return ToolOutput::err("缺少必需参数: 'property'"),
+            let Some(property) = params.get("property").and_then(Value::as_str) else {
+                return ToolOutput::err("缺少必需参数: 'property'");
             };
-            let value = match params.get("value") {
-                Some(v) => v.clone(),
-                None => return ToolOutput::err("缺少必需参数: 'value'"),
+            let Some(value) = params.get("value") else {
+                return ToolOutput::err("缺少必需参数: 'value'");
             };
 
             match bridge.set_property(name, property, value) {
@@ -316,12 +309,13 @@ pub fn dispatch_tool(tool_name: &str, params: &Value, bridge: &EngineBridge) -> 
         "list_entities" => {
             let snapshot = bridge.get_scene_snapshot();
             let entities = snapshot["entities"].clone();
-            ToolOutput::json(serde_json::json!({
+            let summary = serde_json::json!({
                 "scene": snapshot["scene_name"],
                 "frame": snapshot["frame_count"],
                 "count": snapshot["entity_count"],
                 "entities": entities,
-            }))
+            });
+            ToolOutput::json(&summary)
         }
 
         unknown => ToolOutput::err(format!(

@@ -59,7 +59,7 @@ pub struct EditorApp {
 impl std::fmt::Debug for EditorApp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("EditorApp")
-            .field("project", &self.project.as_ref().map(|p| p.name()))
+            .field("project", &self.project.as_ref().map(Project::name))
             .field("mode", &self.mode)
             .field("panel_count", &self.panel_layout.panels.len())
             .field("ai_message_count", &self.ai_assistant.messages.len())

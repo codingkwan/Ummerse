@@ -1168,13 +1168,11 @@ impl SkeletalMesh3d {
 
     /// 获取当前帧的骨骼姿势（用于 GPU skinning）
     pub fn current_pose(&self) -> Vec<(&str, Vec3, Quat, Vec3)> {
-        let name = match &self.current_animation {
-            Some(n) => n,
-            None => return Vec::new(),
+        let Some(name) = &self.current_animation else {
+            return Vec::new();
         };
-        let anim = match self.animations.iter().find(|a| &a.name == name) {
-            Some(a) => a,
-            None => return Vec::new(),
+        let Some(anim) = self.animations.iter().find(|a| &a.name == name) else {
+            return Vec::new();
         };
         anim.sample_all(self.current_time)
     }

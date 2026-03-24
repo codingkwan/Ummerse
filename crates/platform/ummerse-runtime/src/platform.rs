@@ -144,7 +144,7 @@ fn num_cpus() -> usize {
     #[cfg(not(target_arch = "wasm32"))]
     {
         std::thread::available_parallelism()
-            .map(|n| n.get())
+            .map(std::num::NonZero::get)
             .unwrap_or(1)
     }
     #[cfg(target_arch = "wasm32")]

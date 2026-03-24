@@ -6,50 +6,61 @@
 [build]
 # 启用 rustc 增量编译（dev profile 已在 Cargo.toml 中设置，此处为双保险）
 incremental = true
-# 注意：jobs = 0 在某些版本的 cargo 中不被支持，省略则自动使用 CPU 核心数
-# jobs = 8  # 可按机器 CPU 核心数手动设定
+# 并行编译 job 数（默认等于逻辑核心数，可按需调整）
+# jobs = 8
 
 # ── 编译目标优化 ───────────────────────────────────────────────────────────────
 [target.x86_64-pc-windows-msvc]
-# Windows MSVC：减少调试符号体积，加快链接和增量编译速度
-# 注意：-Z share-generics 仅 nightly 可用，stable 工具链请勿使用
-# 若安装了 lld-link 可启用："-C", "link-arg=-fuse-ld=lld"
-rustflags = ["-C", "debuginfo=line-tables-only", "-C", "split-debuginfo=packed"]
+# Windows MSVC 优化说明：
+#
+# 【方案 A - 当前启用】仅压缩调试信息，无需额外安装，立即生效
+# 效果：减小 .pdb 体积约 40%，加速链接少许
+#
+# 【方案 B - 推荐安装后启用】lld-link 链接器，比 link.exe 快 3~5x
+# 安装：winget install LLVM.LLVM  （或从 https://releases.llvm.org 下载）
+# 安装后将下方注释的两行取消注释，并注释掉方案 A 的 rustflags
+rustflags = [
+    # 仅保留行表，大幅减小 .pdb 体积
+    "-C", "debuginfo=line-tables-only",
+    # 打包调试信息（减少链接器处理的小文件数）
+    "-C", "split-debuginfo=packed",
+]
+# ── 方案 B（安装 LLVM 后取消下方注释，注释上方 rustflags）──
+# rustflags = [
+#     "-C", "debuginfo=line-tables-only",
+#     "-C", "split-debuginfo=packed",
+#     "-C", "link-arg=/OPT:NOREF",
+#     "-C", "linker=lld-link",
+# ]
 
 [target.x86_64-unknown-linux-gnu]
-# Linux：可启用 mold 加速链接（安装后取消注释）
 rustflags = [
+    # 【可选】mold 链接器：比 ld 快 10x，比 lld 快 2x
+    # 安装：sudo apt install mold  或  cargo install mold
+    # 取消下两行注释并安装后生效：
+    # "-C", "linker=clang",
     # "-C", "link-arg=-fuse-ld=mold",
-    "-C",
-    "debuginfo=line-tables-only",
-    "-C",
-    "split-debuginfo=unpacked",
+    "-C", "debuginfo=line-tables-only",
+    "-C", "split-debuginfo=unpacked",
 ]
 
 [target.x86_64-apple-darwin]
-# macOS Intel
 rustflags = [
-    "-C",
-    "debuginfo=line-tables-only",
-    "-C",
-    "split-debuginfo=unpacked",
+    "-C", "debuginfo=line-tables-only",
+    "-C", "split-debuginfo=unpacked",
 ]
 
 [target.aarch64-apple-darwin]
-# macOS Apple Silicon
 rustflags = [
-    "-C",
-    "debuginfo=line-tables-only",
-    "-C",
-    "split-debuginfo=unpacked",
+    "-C", "debuginfo=line-tables-only",
+    "-C", "split-debuginfo=unpacked",
 ]
 
 # ── Wasm 目标：体积优化 ────────────────────────────────────────────────────────
 [target.wasm32-unknown-unknown]
 rustflags = [
-    # Wasm 不需要 debuginfo
-    "-C",
-    "debuginfo=0",
+    "-C", "debuginfo=0",
+    "-C", "opt-level=s",  # Wasm 优先体积
 ]
 
 # ── 稀疏注册表协议（Cargo 1.68+，显著加速 cargo check/build 的元数据获取）────
@@ -58,24 +69,32 @@ protocol = "sparse"
 
 # ── 网络配置 ───────────────────────────────────────────────────────────────────
 [net]
-# 关闭 Git fetch（使用稀疏协议后不再需要）
 git-fetch-with-cli = false
-# 允许重试（网络波动时）
 retry = 3
 
 # ── 别名：常用开发命令 ─────────────────────────────────────────────────────────
 [alias]
 # 快速检查所有 crate（不生成代码）
 ck = "check --workspace"
-# 检查 + clippy
+# 检查 + clippy（严格模式）
 lint = "clippy --workspace --all-targets -- -D warnings"
+# 自动修复 clippy 可修复的警告
+fix = "clippy --workspace --all-targets --fix --allow-dirty --allow-staged"
 # 仅编译核心库（跳过 editor/runtime，最快）
-ck-core = "check -p ummerse-core -p ummerse-math -p ummerse-scene -p ummerse-renderer"
+ck-core = "check -p ummerse-core -p ummerse-math"
+# 仅编译渲染相关
+ck-render = "check -p ummerse-renderer -p ummerse-asset"
 # 运行编辑器
 ed = "run --bin ummerse-editor"
-# 运行 runtime
-rt = "run --bin ummerse-runtime"
-# 运行测试（单线程，避免测试间竞争）
+# 运行 MCP server
+mcp = "run --bin ummerse-mcp"
+# 运行测试（多线程）
 t = "test --workspace -- --test-threads=4"
 # 文档
 doc = "doc --workspace --no-deps --open"
+# 格式化
+fmt = "fmt --all"
+# 发布构建
+rel = "build --release"
+# 清理并重建（解决增量编译异常）
+rebuild = "clean --workspace"

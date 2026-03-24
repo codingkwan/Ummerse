@@ -154,23 +154,23 @@ impl WasmPlugin {
                 "ummerse",
                 "log",
                 |mut caller: Caller<'_, WasmPluginState>, level: i32, ptr: i32, len: i32| {
-                    if let Some(memory) = caller.get_export("memory").and_then(|e| e.into_memory())
+                    if let Some(memory) = caller.get_export("memory").and_then(wasmtime::Extern::into_memory)
                     {
                         let mut buf = vec![0u8; len as usize];
-                        if memory.read(&caller, ptr as usize, &mut buf).is_ok() {
-                            if let Ok(msg) = std::str::from_utf8(&buf) {
-                                let level_str = match level {
-                                    0 => "ERROR",
-                                    1 => "WARN",
-                                    2 => "INFO",
-                                    3 => "DEBUG",
-                                    _ => "TRACE",
-                                };
-                                caller
-                                    .data_mut()
-                                    .log_buffer
-                                    .push(format!("[{level_str}] {msg}"));
-                            }
+                        if memory.read(&caller, ptr as usize, &mut buf).is_ok()
+                            && let Ok(msg) = std::str::from_utf8(&buf)
+                        {
+                            let level_str = match level {
+                                0 => "ERROR",
+                                1 => "WARN",
+                                2 => "INFO",
+                                3 => "DEBUG",
+                                _ => "TRACE",
+                            };
+                            caller
+                                .data_mut()
+                                .log_buffer
+                                .push(format!("[{level_str}] {msg}"));
                         }
                     }
                 },
@@ -191,7 +191,7 @@ impl WasmPlugin {
                  params_ptr: i32,
                  params_len: i32| {
                     let result: i32 = if let Some(memory) =
-                        caller.get_export("memory").and_then(|e| e.into_memory())
+                        caller.get_export("memory").and_then(wasmtime::Extern::into_memory)
                     {
                         let mut name_buf = vec![0u8; name_len as usize];
                         let mut params_buf = vec![0u8; params_len as usize];

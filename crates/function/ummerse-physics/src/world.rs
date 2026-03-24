@@ -1,6 +1,6 @@
 //! 物理世界 - 管理物理仿真（带碰撞响应）
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use glam::{Vec2, Vec3};
 
@@ -123,7 +123,7 @@ impl PhysicsWorld2d {
 
         // 2. 宽相 + 窄相碰撞检测
         let mut events = Vec::new();
-        let body_ids: Vec<u64> = self.bodies.keys().cloned().collect();
+        let body_ids: Vec<u64> = self.bodies.keys().copied().collect();
         let mut contacts = Vec::new();
 
         for i in 0..body_ids.len() {
@@ -131,20 +131,16 @@ impl PhysicsWorld2d {
                 let id_a = body_ids[i];
                 let id_b = body_ids[j];
 
-                let (col_a, col_b) = match (self.colliders.get(&id_a), self.colliders.get(&id_b)) {
-                    (Some(a), Some(b)) => (a, b),
-                    _ => continue,
-                };
+                let Some(col_a) = self.colliders.get(&id_a) else { continue };
+                let Some(col_b) = self.colliders.get(&id_b) else { continue };
 
                 // 碰撞层检测
                 if !col_a.can_collide_with(col_b) {
                     continue;
                 }
 
-                let (body_a, body_b) = match (self.bodies.get(&id_a), self.bodies.get(&id_b)) {
-                    (Some(a), Some(b)) => (a, b),
-                    _ => continue,
-                };
+                let Some(body_a) = self.bodies.get(&id_a) else { continue };
+                let Some(body_b) = self.bodies.get(&id_b) else { continue };
 
                 // 宽相 AABB 检测
                 let aabb_a = col_a.aabb(body_a.position);
@@ -165,16 +161,8 @@ impl PhysicsWorld2d {
             let id_a = *id_a;
             let id_b = *id_b;
 
-            let is_sensor_a = self
-                .colliders
-                .get(&id_a)
-                .map(|c| c.is_sensor)
-                .unwrap_or(false);
-            let is_sensor_b = self
-                .colliders
-                .get(&id_b)
-                .map(|c| c.is_sensor)
-                .unwrap_or(false);
+            let is_sensor_a = self.colliders.get(&id_a).is_some_and(|c| c.is_sensor);
+            let is_sensor_b = self.colliders.get(&id_b).is_some_and(|c| c.is_sensor);
 
             // 传感器不产生物理响应
             if !is_sensor_a && !is_sensor_b {
@@ -182,11 +170,7 @@ impl PhysicsWorld2d {
             }
 
             // 判断是新碰撞还是持续碰撞
-            let pair = if id_a < id_b {
-                (id_a, id_b)
-            } else {
-                (id_b, id_a)
-            };
+            let pair = if id_a < id_b { (id_a, id_b) } else { (id_b, id_a) };
             let kind = if self.active_contacts.contains_key(&pair) {
                 CollisionEventKind::Persisted
             } else {
@@ -215,37 +199,27 @@ impl PhysicsWorld2d {
         contact: &crate::collider::ContactInfo2d,
     ) {
         // 获取质量信息
-        let (mass_a, inv_mass_a, is_static_a, vel_a) = if let Some(b) = self.bodies.get(&id_a) {
+        let (inv_mass_a, is_static_a, vel_a) = if let Some(b) = self.bodies.get(&id_a) {
             let inv = if b.is_static { 0.0 } else { 1.0 / b.mass };
-            (b.mass, inv, b.is_static, b.linear_velocity)
+            (inv, b.is_static, b.linear_velocity)
         } else {
             return;
         };
 
-        let (mass_b, inv_mass_b, is_static_b, vel_b) = if let Some(b) = self.bodies.get(&id_b) {
+        let (inv_mass_b, is_static_b, vel_b) = if let Some(b) = self.bodies.get(&id_b) {
             let inv = if b.is_static { 0.0 } else { 1.0 / b.mass };
-            (b.mass, inv, b.is_static, b.linear_velocity)
+            (inv, b.is_static, b.linear_velocity)
         } else {
             return;
         };
-
-        let _ = (mass_a, mass_b); // 抑制 unused 警告
 
         if is_static_a && is_static_b {
             return; // 两个静态物体不需要响应
         }
 
         // 获取弹性系数（取两者的平均）
-        let restitution_a = self
-            .materials
-            .get(&id_a)
-            .map(|m| m.restitution)
-            .unwrap_or(0.0);
-        let restitution_b = self
-            .materials
-            .get(&id_b)
-            .map(|m| m.restitution)
-            .unwrap_or(0.0);
+        let restitution_a = self.materials.get(&id_a).map(|m| m.restitution).unwrap_or(0.0);
+        let restitution_b = self.materials.get(&id_b).map(|m| m.restitution).unwrap_or(0.0);
         let restitution = (restitution_a + restitution_b) * 0.5;
 
         // 相对速度
@@ -262,15 +236,15 @@ impl PhysicsWorld2d {
 
         // 应用冲量
         let impulse = contact.normal * j;
-        if let Some(body) = self.bodies.get_mut(&id_a) {
-            if !body.is_static {
-                body.linear_velocity -= impulse * inv_mass_a;
-            }
+        if let Some(body) = self.bodies.get_mut(&id_a)
+            && !body.is_static
+        {
+            body.linear_velocity -= impulse * inv_mass_a;
         }
-        if let Some(body) = self.bodies.get_mut(&id_b) {
-            if !body.is_static {
-                body.linear_velocity += impulse * inv_mass_b;
-            }
+        if let Some(body) = self.bodies.get_mut(&id_b)
+            && !body.is_static
+        {
+            body.linear_velocity += impulse * inv_mass_b;
         }
 
         // 位置修正（Baumgarte 稳定化）
@@ -280,25 +254,22 @@ impl PhysicsWorld2d {
                 * self.response.baumgarte_factor;
             let correction = contact.normal * correction_mag;
 
-            if let Some(body) = self.bodies.get_mut(&id_a) {
-                if !body.is_static {
-                    body.position -= correction * inv_mass_a;
-                }
+            if let Some(body) = self.bodies.get_mut(&id_a)
+                && !body.is_static
+            {
+                body.position -= correction * inv_mass_a;
             }
-            if let Some(body) = self.bodies.get_mut(&id_b) {
-                if !body.is_static {
-                    body.position += correction * inv_mass_b;
-                }
+            if let Some(body) = self.bodies.get_mut(&id_b)
+                && !body.is_static
+            {
+                body.position += correction * inv_mass_b;
             }
         }
     }
 
     /// 获取所有刚体的位置（用于渲染同步）
     pub fn body_positions(&self) -> Vec<(u64, Vec2)> {
-        self.bodies
-            .iter()
-            .map(|(&id, b)| (id, b.position))
-            .collect()
+        self.bodies.iter().map(|(&id, b)| (id, b.position)).collect()
     }
 
     /// 射线检测（简化版 AABB 射线检测）
@@ -309,17 +280,16 @@ impl PhysicsWorld2d {
         for (&id, collider) in &self.colliders {
             if let Some(body) = self.bodies.get(&id) {
                 let aabb = collider.aabb(body.position);
-                if let Some(t) = aabb_raycast(origin, dir_norm, &aabb) {
-                    if t <= max_dist {
-                        if closest.as_ref().map(|c| t < c.distance).unwrap_or(true) {
-                            closest = Some(RaycastHit2d {
-                                body_id: id,
-                                point: origin + dir_norm * t,
-                                normal: Vec2::Y, // 简化
-                                distance: t,
-                            });
-                        }
-                    }
+                if let Some(t) = aabb_raycast(origin, dir_norm, &aabb)
+                    && t <= max_dist
+                    && closest.as_ref().map(|c| t < c.distance).unwrap_or(true)
+                {
+                    closest = Some(RaycastHit2d {
+                        body_id: id,
+                        point: origin + dir_norm * t,
+                        normal: Vec2::Y, // 简化
+                        distance: t,
+                    });
                 }
             }
         }
@@ -336,16 +306,8 @@ impl PhysicsWorld2d {
 /// 简化的 AABB 射线检测（slab method）
 fn aabb_raycast(origin: Vec2, dir: Vec2, aabb: &ummerse_math::aabb::Aabb2d) -> Option<f32> {
     let inv_dir = Vec2::new(
-        if dir.x.abs() > 1e-8 {
-            1.0 / dir.x
-        } else {
-            f32::INFINITY
-        },
-        if dir.y.abs() > 1e-8 {
-            1.0 / dir.y
-        } else {
-            f32::INFINITY
-        },
+        if dir.x.abs() > 1e-8 { 1.0 / dir.x } else { f32::INFINITY },
+        if dir.y.abs() > 1e-8 { 1.0 / dir.y } else { f32::INFINITY },
     );
     let t1 = (aabb.min - origin) * inv_dir;
     let t2 = (aabb.max - origin) * inv_dir;
@@ -456,29 +418,23 @@ impl PhysicsWorld3d {
 
         // 2. 宽相 + 窄相碰撞检测（球体 vs 球体，AABB vs AABB）
         let mut events = Vec::new();
-        let body_ids: Vec<u64> = self.bodies.keys().cloned().collect();
+        let body_ids: Vec<u64> = self.bodies.keys().copied().collect();
 
         for i in 0..body_ids.len() {
             for j in (i + 1)..body_ids.len() {
                 let id_a = body_ids[i];
                 let id_b = body_ids[j];
 
-                let (col_a, col_b) =
-                    match (self.colliders.get(&id_a), self.colliders.get(&id_b)) {
-                        (Some(a), Some(b)) => (a, b),
-                        _ => continue,
-                    };
+                let Some(col_a) = self.colliders.get(&id_a) else { continue };
+                let Some(col_b) = self.colliders.get(&id_b) else { continue };
 
                 // 碰撞层掩码检测
                 if (col_a.collision_mask & col_b.collision_layer) == 0 {
                     continue;
                 }
 
-                let (body_a, body_b) =
-                    match (self.bodies.get(&id_a), self.bodies.get(&id_b)) {
-                        (Some(a), Some(b)) => (a, b),
-                        _ => continue,
-                    };
+                let Some(body_a) = self.bodies.get(&id_a) else { continue };
+                let Some(body_b) = self.bodies.get(&id_b) else { continue };
 
                 // 两个静态体无需检测
                 if body_a.is_static && body_b.is_static {
@@ -491,13 +447,7 @@ impl PhysicsWorld3d {
                 {
                     // 碰撞响应（非传感器）
                     if !col_a.is_sensor && !col_b.is_sensor {
-                        resolve_3d_collision(
-                            &mut self.bodies,
-                            id_a,
-                            id_b,
-                            normal,
-                            penetration,
-                        );
+                        resolve_3d_collision(&mut self.bodies, id_a, id_b, normal, penetration);
                     }
 
                     let pair = if id_a < id_b { (id_a, id_b) } else { (id_b, id_a) };
@@ -521,15 +471,9 @@ impl PhysicsWorld3d {
         }
 
         // 3. 清除已分离的接触对（产生 Exited 事件）
-        let current_pairs: std::collections::HashSet<(u64, u64)> = events
+        let current_pairs: HashSet<(u64, u64)> = events
             .iter()
-            .map(|e| {
-                if e.body_a < e.body_b {
-                    (e.body_a, e.body_b)
-                } else {
-                    (e.body_b, e.body_a)
-                }
-            })
+            .map(|e| if e.body_a < e.body_b { (e.body_a, e.body_b) } else { (e.body_b, e.body_a) })
             .collect();
 
         let exited_pairs: Vec<(u64, u64)> = self
@@ -568,7 +512,6 @@ impl PhysicsWorld3d {
                     crate::collider::ColliderShape3d::Box { half_extents } => {
                         let center = body.position + collider.offset;
                         aabb3d_raycast(origin, dir_norm, center - *half_extents, center + *half_extents)
-                            .map(|(t, n)| (t, n))
                     }
                     crate::collider::ColliderShape3d::Capsule { radius, height } => {
                         // 用球体近似
@@ -581,17 +524,16 @@ impl PhysicsWorld3d {
                     }
                 };
 
-                if let Some((t, normal)) = hit {
-                    if t <= max_dist {
-                        if closest.as_ref().map(|c| t < c.distance).unwrap_or(true) {
-                            closest = Some(RaycastHit3d {
-                                body_id: id,
-                                point: origin + dir_norm * t,
-                                normal,
-                                distance: t,
-                            });
-                        }
-                    }
+                if let Some((t, normal)) = hit
+                    && t <= max_dist
+                    && closest.as_ref().map(|c| t < c.distance).unwrap_or(true)
+                {
+                    closest = Some(RaycastHit3d {
+                        body_id: id,
+                        point: origin + dir_norm * t,
+                        normal,
+                        distance: t,
+                    });
                 }
             }
         }
@@ -601,10 +543,7 @@ impl PhysicsWorld3d {
 
     /// 获取所有刚体位置（用于渲染同步）
     pub fn body_positions(&self) -> Vec<(u64, Vec3)> {
-        self.bodies
-            .iter()
-            .map(|(&id, b)| (id, b.position))
-            .collect()
+        self.bodies.iter().map(|(&id, b)| (id, b.position)).collect()
     }
 
     pub fn next_id(&mut self) -> u64 {
@@ -699,8 +638,7 @@ fn test_3d_collision(
         (
             crate::collider::ColliderShape3d::Box { .. },
             crate::collider::ColliderShape3d::Sphere { .. },
-        ) => test_3d_collision(col_b, pos_b, col_a, pos_a)
-            .map(|(p, n, pen)| (p, -n, pen)),
+        ) => test_3d_collision(col_b, pos_b, col_a, pos_a).map(|(p, n, pen)| (p, -n, pen)),
         // 其他形状组合：用球体近似
         _ => {
             let ra = shape_approx_radius(&col_a.shape);
@@ -725,9 +663,7 @@ fn shape_approx_radius(shape: &crate::collider::ColliderShape3d) -> f32 {
         crate::collider::ColliderShape3d::Sphere { radius } => *radius,
         crate::collider::ColliderShape3d::Box { half_extents } => half_extents.length(),
         crate::collider::ColliderShape3d::Capsule { radius, height } => radius + height * 0.5,
-        crate::collider::ColliderShape3d::Cylinder { radius, height } => {
-            radius.max(height * 0.5)
-        }
+        crate::collider::ColliderShape3d::Cylinder { radius, height } => radius.max(height * 0.5),
     }
 }
 
@@ -770,30 +706,30 @@ fn resolve_3d_collision(
     let j = -(1.0 + restitution) * vel_along / (inv_mass_a + inv_mass_b + 1e-8);
     let impulse = normal * j;
 
-    if let Some(body) = bodies.get_mut(&id_a) {
-        if !body.is_static {
-            body.linear_velocity -= impulse * inv_mass_a;
-        }
+    if let Some(body) = bodies.get_mut(&id_a)
+        && !body.is_static
+    {
+        body.linear_velocity -= impulse * inv_mass_a;
     }
-    if let Some(body) = bodies.get_mut(&id_b) {
-        if !body.is_static {
-            body.linear_velocity += impulse * inv_mass_b;
-        }
+    if let Some(body) = bodies.get_mut(&id_b)
+        && !body.is_static
+    {
+        body.linear_velocity += impulse * inv_mass_b;
     }
 
     // Baumgarte 位置修正
     let correction_mag =
         (penetration - 0.01_f32).max(0.0) / (inv_mass_a + inv_mass_b + 1e-8) * 0.4;
     let correction = normal * correction_mag;
-    if let Some(body) = bodies.get_mut(&id_a) {
-        if !body.is_static {
-            body.position -= correction * inv_mass_a;
-        }
+    if let Some(body) = bodies.get_mut(&id_a)
+        && !body.is_static
+    {
+        body.position -= correction * inv_mass_a;
     }
-    if let Some(body) = bodies.get_mut(&id_b) {
-        if !body.is_static {
-            body.position += correction * inv_mass_b;
-        }
+    if let Some(body) = bodies.get_mut(&id_b)
+        && !body.is_static
+    {
+        body.position += correction * inv_mass_b;
     }
 }
 
@@ -812,8 +748,10 @@ fn sphere_raycast(
         return None;
     }
     let sqrt_d = discriminant.sqrt();
-    let t = -b - sqrt_d;
-    let t = if t >= 0.0 { t } else { -b + sqrt_d };
+    let t = {
+        let t0 = -b - sqrt_d;
+        if t0 >= 0.0 { t0 } else { -b + sqrt_d }
+    };
     if t >= 0.0 {
         let hit_point = origin + dir * t;
         let normal = (hit_point - center).normalize_or_zero();
@@ -862,6 +800,69 @@ fn aabb3d_raycast(
     }
 }
 
+// ── 广度优先遍历工具（用于空间查询）────────────────────────────────────────────
+
+/// 在 2D 物理世界中进行球形重叠查询（返回在指定范围内的所有刚体 ID）
+pub fn overlap_circle(world: &PhysicsWorld2d, center: Vec2, radius: f32) -> Vec<u64> {
+    world
+        .body_positions()
+        .into_iter()
+        .filter(|(_, pos)| pos.distance_squared(center) <= radius * radius)
+        .map(|(id, _)| id)
+        .collect()
+}
+
+/// 在 2D 世界中进行 BFS 路径发现（简化版，以网格为基础）
+pub fn bfs_reachable_2d(
+    world: &PhysicsWorld2d,
+    start: Vec2,
+    max_radius: f32,
+    step: f32,
+) -> Vec<Vec2> {
+    let mut visited = HashSet::new();
+    let mut queue = VecDeque::new();
+    let mut result = Vec::new();
+
+    let start_grid = (
+        (start.x / step).round() as i32,
+        (start.y / step).round() as i32,
+    );
+    queue.push_back(start_grid);
+    visited.insert(start_grid);
+
+    let offsets = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+
+    while let Some((gx, gy)) = queue.pop_front() {
+        let world_pos = Vec2::new(gx as f32 * step, gy as f32 * step);
+        if world_pos.distance(start) > max_radius {
+            continue;
+        }
+
+        // 检查该位置是否被静态体阻挡
+        let blocked = world.body_positions().iter().any(|(id, pos)| {
+            if let Some(body) = world.get_body(*id)
+                && body.is_static
+            {
+                return pos.distance(world_pos) < step * 0.5;
+            }
+            false
+        });
+
+        if !blocked {
+            result.push(world_pos);
+            for (dx, dy) in offsets {
+                let neighbor = (gx + dx, gy + dy);
+                if !visited.contains(&neighbor) {
+                    visited.insert(neighbor);
+                    queue.push_back(neighbor);
+                }
+            }
+        }
+    }
+
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -901,5 +902,52 @@ mod tests {
 
         let events = world.step(1.0 / 60.0);
         assert!(!events.is_empty(), "碰撞事件应该被检测到");
+    }
+
+    #[test]
+    fn test_static_body_no_gravity() {
+        let mut world = PhysicsWorld2d::new();
+        let id = world.alloc_id();
+        let mut body = RigidBody2d::new(id);
+        body.position = Vec2::new(0.0, 0.0);
+        body.is_static = true;
+        let initial_pos = body.position;
+        world.add_body(body);
+
+        // 步进 10 帧，静态体不应移动
+        for _ in 0..10 {
+            world.step(1.0 / 60.0);
+        }
+
+        let body = world.get_body(id).unwrap();
+        assert_eq!(body.position, initial_pos, "静态体不应受重力影响");
+    }
+
+    #[test]
+    fn test_raycast_hits_circle() {
+        let mut world = PhysicsWorld2d::new();
+        world.gravity = Vec2::ZERO;
+
+        let id = world.alloc_id();
+        let mut body = RigidBody2d::new(id);
+        body.position = Vec2::new(100.0, 0.0);
+        world.add_body(body);
+        world.add_collider(Collider2d::circle(id, 20.0));
+
+        let hit = world.raycast(Vec2::ZERO, Vec2::X, 200.0);
+        assert!(hit.is_some(), "射线应命中圆形碰撞体");
+        assert_eq!(hit.unwrap().body_id, id);
+    }
+
+    #[test]
+    fn test_3d_world_gravity() {
+        let mut world = PhysicsWorld3d::new();
+        let id = world.alloc_id();
+        let mut body = RigidBody3d::new(id);
+        body.position = Vec3::new(0.0, 100.0, 0.0);
+        world.add_body(body);
+        world.step(1.0 / 60.0);
+        let body = world.get_body(id).unwrap();
+        assert!(body.linear_velocity.y < 0.0, "3D 刚体应受重力影响");
     }
 }

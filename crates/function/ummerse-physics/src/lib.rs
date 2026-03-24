@@ -22,20 +22,15 @@ use serde::{Deserialize, Serialize};
 // ── 刚体类型 ──────────────────────────────────────────────────────────────────
 
 /// 刚体类型
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum RigidBodyType {
     /// 动态刚体（受力影响）
+    #[default]
     Dynamic,
     /// 静态刚体（不运动）
     Static,
     /// 运动学刚体（手动控制位置）
     Kinematic,
-}
-
-impl Default for RigidBodyType {
-    fn default() -> Self {
-        Self::Dynamic
-    }
 }
 
 // ── 碰撞事件 ──────────────────────────────────────────────────────────────────
